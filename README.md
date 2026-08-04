@@ -1,11 +1,10 @@
 # WildGuard
 很大风
 
-===**REMINDER**===
+**===REMINDER===**
+- Ensure the Android Studio version is the latest version, up-to-date.
+- GitHub account had been created at the moment.
 
-***Ensure the Android Studio version is the latest version, up-to-date.**
-
-***GitHub account had been created at the moment.**
 
 # GUIDELINE (can make necessary changes if needed for further reference)
 Before start coding part, done these setup part first.
@@ -15,10 +14,14 @@ Before start coding part, done these setup part first.
 
 Every time done your coding changes, please done these procedures and ensure that it had been done successfully before closing project,
 1. Click "Commit" shown in image / Git > Commit and navigate to the respective page in next image.
+
    <img width="195" height="321" alt="image" src="https://github.com/user-attachments/assets/87ae3702-925d-46dd-9702-ee2c61d6b5d5" />
 
+
 2. Tick all the boxes first as those are the changes you had done during your coding progress. Then, write down detailed commit message in provided field and click "Commit and Push".
+
    <img width="398" height="564" alt="image" src="https://github.com/user-attachments/assets/32ba0b64-7956-4e52-9fb8-b60c0971eb37" />
+
 
 3. Wait till the progress finished and a notifications will prompt out as shown in the image.
 
