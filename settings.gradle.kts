@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "WildGuard"
+rootProject.name = "Assignment"
 include(":app")
