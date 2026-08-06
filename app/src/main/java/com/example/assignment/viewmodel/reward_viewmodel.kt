@@ -32,20 +32,26 @@ class RewardViewModel : ViewModel() {
         private set
 
     // Current selected animal
-    var selectedAnimal by mutableStateOf(AnimalType.FOX)
+    var selectedAnimal by mutableStateOf(AnimalType.TIGER)
         private set
 
     // User points
     var currentPoint by mutableIntStateOf(0)
         private set
 
-    var interactionMessage by mutableStateOf(
-        "Thanks for protecting me!"
-    )
+    private val unlockedInteractions = mutableListOf<String>()
+
+    var currentInteractionIndex by mutableStateOf(0)
         private set
 
-    var showInteraction by mutableStateOf(true)
+    var interactionMessage by mutableStateOf("")
         private set
+
+    var showInteraction by mutableStateOf(false)
+        private set
+
+    val showInteractionButton: Boolean
+        get() = unlockedInteractions.size > 1
 
     // Maximum points for current level
     var maxPoint by mutableIntStateOf(50)
@@ -104,6 +110,38 @@ class RewardViewModel : ViewModel() {
                     "Let's continue protecting wildlife!"
             }
         }
+    }
+
+    fun unlockInteraction(message: String) {
+
+        if (!unlockedInteractions.contains(message)) {
+
+            unlockedInteractions.add(message)
+
+        }
+
+        currentInteractionIndex = unlockedInteractions.lastIndex
+
+        interactionMessage = message
+
+        showInteraction = true
+
+    }
+
+    fun nextInteraction() {
+
+        if (unlockedInteractions.isEmpty()) return
+
+        currentInteractionIndex++
+
+        if (currentInteractionIndex >= unlockedInteractions.size)
+
+            currentInteractionIndex = 0
+
+        interactionMessage =
+
+            unlockedInteractions[currentInteractionIndex]
+
     }
 
     fun purchaseReward(

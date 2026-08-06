@@ -1,14 +1,14 @@
 package com.example.assignment.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Forest
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import com.example.assignment.R
 import com.example.assignment.viewmodel.RewardType
 
@@ -19,40 +19,88 @@ fun RewardToggleButton(
 
     currentType: RewardType,
 
-    onClick:()->Unit
+    onClick: () -> Unit,
 
-){
+    ) {
 
-    FloatingActionButton(
+    Box(
 
-        modifier=modifier,
+        modifier = modifier
+            .size(72.dp)
 
-        onClick=onClick
+    ) {
 
-    ){
+        ElevatedCard(
 
-        if(currentType== RewardType.PLANT){
+            modifier = Modifier.fillMaxSize(),
+
+            shape = CircleShape,
+
+            onClick = onClick
+
+        ) {
+
+            Column(
+
+                modifier = Modifier.fillMaxSize(),
+
+                horizontalAlignment = Alignment.CenterHorizontally,
+
+                verticalArrangement = Arrangement.Center
+
+            ) {
+
+                Image(
+                    painter = painterResource(
+                        if (currentType == RewardType.PLANT)
+                            R.drawable.animal
+                        else
+                            R.drawable.plant
+                    ),
+                    contentDescription = null,
+                    modifier = Modifier.size(32.dp)
+                )
+
+                Spacer(Modifier.height(2.dp))
+
+                Text(
+                    if (currentType == RewardType.PLANT)
+                        "Animals"
+                    else
+                        "Plants",
+                    style = MaterialTheme.typography.labelSmall
+                )
+
+            }
+
+        }
+
+        // Small switch indicator
+        Surface(
+
+            modifier = Modifier
+                .size(18.dp)
+                .align(Alignment.BottomEnd),
+
+            shape = CircleShape,
+
+            tonalElevation = 4.dp,
+
+            shadowElevation = 4.dp
+
+        ) {
 
             Icon(
 
-                painterResource(R.drawable.ic_launcher_foreground/*ic_animal*/),
+                painter = painterResource(R.drawable.cycle),
 
-                null
+                contentDescription = null,
 
-            )
-
-        }else{
-
-            Icon(
-
-                painterResource(R.drawable.ic_launcher_foreground/*ic_plant*/),
-
-                null
+                modifier = Modifier.padding(3.dp)
 
             )
 
         }
 
     }
-
 }
