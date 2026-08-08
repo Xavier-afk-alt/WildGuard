@@ -45,7 +45,7 @@ class RewardViewModel : ViewModel() {
         private set
 
     // User points
-    var currentPoint by mutableIntStateOf(0)
+    var currentPoint by mutableIntStateOf(10000) //should be 0
         private set
 
     private val unlockedInteractions = mutableListOf<String>()
@@ -153,32 +153,60 @@ class RewardViewModel : ViewModel() {
 
     }
 
-    fun purchaseReward(reward: RewardItem) {
+    fun purchaseReward(
+        reward: RewardItem,
+        quantity: Int
+    ) {
 
-        // 1. Check stock
-        if (reward.stock <= 0) {
+        if (quantity <= 0) {
             return
         }
 
-        // 2. Check whether user has enough points
-        if (currentPoint < reward.price) {
+        // Low stock / unavailable
+        if (reward.stock < 0) {
             return
         }
 
-        // 3. Deduct points
-        currentPoint -= reward.price
-
-        // 4. Find the corresponding item
-        val index = _rewardItems.indexOfFirst {
-            it.id == reward.id
+        // Sold out
+        if (reward.stock == 0) {
+            return
         }
 
-        // 5. Decrease stock
+        // Quantity exceeds stock
+        if (quantity > reward.stock) {
+            return
+        }
+
+        val totalPrice =
+            reward.price * quantity
+
+        // Not enough points
+        if (currentPoint < totalPrice) {
+            return
+        }
+
+        // Deduct points
+        currentPoint -= totalPrice
+
+        // Find item
+        val index =
+            _rewardItems.indexOfFirst {
+                it.id == reward.id
+            }
+
         if (index != -1) {
 
+            val oldReward =
+                _rewardItems[index]
+
             _rewardItems[index] =
-                _rewardItems[index].copy(
-                    stock = _rewardItems[index].stock - 1
+                oldReward.copy(
+
+                    stock =
+                        oldReward.stock - quantity,
+
+                    purchased = true
+
                 )
         }
     }

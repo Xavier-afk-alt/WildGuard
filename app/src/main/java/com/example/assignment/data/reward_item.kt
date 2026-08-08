@@ -2,6 +2,11 @@ package com.example.assignment.data
 
 import androidx.annotation.DrawableRes
 
+enum class PurchaseMode {
+    SINGLE,
+    MULTIPLE
+}
+
 data class RewardItem(
 
     val id:Int,
@@ -18,6 +23,8 @@ data class RewardItem(
     val image:Int,
 
     val stock:Int,
+
+    val purchaseMode: PurchaseMode = PurchaseMode.SINGLE,
 
     val purchased:Boolean=false
 

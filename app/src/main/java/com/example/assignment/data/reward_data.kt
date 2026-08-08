@@ -18,7 +18,9 @@ val rewardItems = mutableListOf(
 
         image= R.drawable.pat_hand,
 
-        stock=10
+        stock=10,
+
+        purchaseMode = PurchaseMode.MULTIPLE
 
     ),
 
@@ -36,7 +38,9 @@ val rewardItems = mutableListOf(
 
         image=R.drawable.watering_tool,
 
-        stock=10
+        stock=10,
+
+        purchaseMode = PurchaseMode.MULTIPLE
 
     ),
 
@@ -54,7 +58,9 @@ val rewardItems = mutableListOf(
 
         image=R.drawable.grab_voucher,
 
-        stock=1
+        stock=1,
+
+        purchaseMode = PurchaseMode.SINGLE
 
     ),
 
@@ -72,7 +78,9 @@ val rewardItems = mutableListOf(
 
         image=R.drawable.foodpanda_voucher,
 
-        stock=0
+        stock=0,
+
+        purchaseMode = PurchaseMode.SINGLE
 
     ),
 
@@ -90,7 +98,9 @@ val rewardItems = mutableListOf(
 
         image=R.drawable.low_stock,
 
-        stock=-1
+        stock=-1,
+
+        purchaseMode = PurchaseMode.SINGLE
 
     ),
 
@@ -108,7 +118,9 @@ val rewardItems = mutableListOf(
 
         image=R.drawable.low_stock,
 
-        stock=-1
+        stock=-1,
+
+        purchaseMode = PurchaseMode.SINGLE
 
     ),
 
@@ -126,7 +138,9 @@ val rewardItems = mutableListOf(
 
         image=R.drawable.low_stock,
 
-        stock=-1
+        stock=-1,
+
+        purchaseMode = PurchaseMode.SINGLE
 
     ),
 
@@ -144,7 +158,9 @@ val rewardItems = mutableListOf(
 
         image=R.drawable.low_stock,
 
-        stock=-1
+        stock=-1,
+
+        purchaseMode = PurchaseMode.SINGLE
 
     ),
 
@@ -162,7 +178,9 @@ val rewardItems = mutableListOf(
 
         image=R.drawable.low_stock,
 
-        stock=-1
+        stock=-1,
+
+        purchaseMode = PurchaseMode.SINGLE
 
     ),
 
@@ -180,7 +198,9 @@ val rewardItems = mutableListOf(
 
         image=R.drawable.low_stock,
 
-        stock=-1
+        stock=-1,
+
+        purchaseMode = PurchaseMode.SINGLE
 
     )
 

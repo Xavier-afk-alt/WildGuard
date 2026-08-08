@@ -139,11 +139,7 @@ fun RewardCard(
 
                 Button(
 
-                    onClick = {
-                        if (canPurchase) {
-                            onPurchase()
-                        }
-                    },
+                    onClick = onPurchase,
 
                     enabled = true,
 
