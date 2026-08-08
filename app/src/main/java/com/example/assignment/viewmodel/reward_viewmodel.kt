@@ -3,6 +3,11 @@ package com.example.assignment.viewmodel
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import com.example.assignment.data.RewardItem
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import com.example.assignment.data.rewardItems as initialRewardItems
 
 enum class RewardType {
     PLANT,
@@ -23,10 +28,14 @@ enum class AnimalType {
 
 class RewardViewModel : ViewModel() {
 
-    var rewardItems by mutableStateOf(
-        mutableStateListOf<RewardItem>()
-    )
-        private set
+    private val _rewardItems =
+        mutableStateListOf<RewardItem>().apply {
+            addAll(initialRewardItems)
+        }
+
+    val rewardItems: List<RewardItem>
+        get() = _rewardItems
+
     // Current display page
     var rewardType by mutableStateOf(RewardType.PLANT)
         private set
@@ -144,20 +153,33 @@ class RewardViewModel : ViewModel() {
 
     }
 
-    fun purchaseReward(
+    fun purchaseReward(reward: RewardItem) {
 
-        reward:RewardItem
-
-    ){
-
-        if(currentPoint>=reward.price
-            && reward.stock>0){
-
-            currentPoint-=reward.price
-
-            reward.stock--
-
+        // 1. Check stock
+        if (reward.stock <= 0) {
+            return
         }
 
+        // 2. Check whether user has enough points
+        if (currentPoint < reward.price) {
+            return
+        }
+
+        // 3. Deduct points
+        currentPoint -= reward.price
+
+        // 4. Find the corresponding item
+        val index = _rewardItems.indexOfFirst {
+            it.id == reward.id
+        }
+
+        // 5. Decrease stock
+        if (index != -1) {
+
+            _rewardItems[index] =
+                _rewardItems[index].copy(
+                    stock = _rewardItems[index].stock - 1
+                )
+        }
     }
 }

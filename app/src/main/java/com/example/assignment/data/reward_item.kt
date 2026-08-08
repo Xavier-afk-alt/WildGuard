@@ -6,6 +6,8 @@ data class RewardItem(
 
     val id:Int,
 
+    val type:String,
+
     val title:String,
 
     val description:String,
@@ -15,7 +17,7 @@ data class RewardItem(
     @DrawableRes
     val image:Int,
 
-    var stock:Int,
+    val stock:Int,
 
     val purchased:Boolean=false
 

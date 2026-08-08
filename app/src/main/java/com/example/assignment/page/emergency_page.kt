@@ -11,9 +11,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.assignment.R
 import com.example.assignment.components.EmergencyCard
 import com.example.assignment.components.SOSButton
 
@@ -36,7 +38,7 @@ fun EmergencyPage(navController: NavController) {
                     }
                 ) {
                     Icon(
-                        Icons.Default.ArrowBack,
+                        painter = painterResource(R.drawable.back),
                         contentDescription = "Back"
                     )
                 }
