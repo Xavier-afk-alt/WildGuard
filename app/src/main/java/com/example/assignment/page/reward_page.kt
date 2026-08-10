@@ -29,14 +29,14 @@ fun RewardPage(
 
             RewardHeader()
 
-            ProgressCard(
-
-                currentPoint = rewardViewModel.currentPoint,
-
+            AchievementBanner(
+                earnedPoints = rewardViewModel.totalEarnedPoints,
                 maxPoint = rewardViewModel.maxPoint,
-
-                status = rewardViewModel.status
-
+                status = rewardViewModel.status,
+                borderColor = rewardViewModel.statusColor,
+                onClick = {
+                    navController.navigate("achievements")
+                }
             )
 
             RedeemButton(

@@ -7,7 +7,10 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import com.example.assignment.data.Achievement
+import com.example.assignment.data.AchievementType
 import com.example.assignment.data.rewardItems as initialRewardItems
+import com.example.assignment.data.achievementItems as initialAchievementItems
 
 enum class RewardType {
     PLANT,
@@ -44,9 +47,28 @@ class RewardViewModel : ViewModel() {
     var selectedAnimal by mutableStateOf(AnimalType.TIGER)
         private set
 
-    // User points
-    var currentPoint by mutableIntStateOf(10000) //should be 0
+    // Spendable reward points. This balance can go up when points are earned
+    // and down when a reward is purchased.
+    var currentPoint by mutableIntStateOf(0)
         private set
+
+    // Lifetime points earned. This is intentionally separate from currentPoint
+    // so spending points never reduces achievement/rank progress.
+    var totalEarnedPoints by mutableIntStateOf(0)
+        private set
+
+    private val _achievements =
+        mutableStateListOf<Achievement>().apply {
+            addAll(initialAchievementItems)
+        }
+
+    val achievements: List<Achievement>
+        get() = _achievements
+
+    private var reportCount by mutableIntStateOf(0)
+    private var loginCount by mutableIntStateOf(0)
+    private var guidebookCount by mutableIntStateOf(0)
+    private val discoveredAnimals = mutableStateListOf<String>()
 
     private val unlockedInteractions = mutableListOf<String>()
 
@@ -62,13 +84,42 @@ class RewardViewModel : ViewModel() {
     val showInteractionButton: Boolean
         get() = unlockedInteractions.size > 1
 
-    // Maximum points for current level
-    var maxPoint by mutableIntStateOf(50)
-        private set
+    // Current achievement/rank threshold. It is based on lifetime earned points,
+    // not the spendable balance.
+    val maxPoint: Int
+        get() = when {
+            totalEarnedPoints < 50 -> 50
+            totalEarnedPoints < 250 -> 250
+            totalEarnedPoints < 500 -> 500
+            totalEarnedPoints < 1_000 -> 1_000
+            totalEarnedPoints < 5_000 -> 5_000
+            totalEarnedPoints < 7_500 -> 7_500
+            else -> 10_000
+        }
 
-    // Current title
-    var status by mutableStateOf("Starter")
-        private set
+    // Current achievement/rank title.
+    val status: String
+        get() = when {
+            totalEarnedPoints < 50 -> "Starter"
+            totalEarnedPoints < 250 -> "Entry-level"
+            totalEarnedPoints < 500 -> "Junior"
+            totalEarnedPoints < 1_000 -> "Apprentice"
+            totalEarnedPoints < 5_000 -> "Expert"
+            totalEarnedPoints < 7_500 -> "Veteran"
+            else -> "Master"
+        }
+
+    // Colour used by the achievement banner to match the current rank.
+    val statusColor: androidx.compose.ui.graphics.Color
+        get() = when (status) {
+            "Starter" -> androidx.compose.ui.graphics.Color(0xFFE7B0B0)
+            "Entry-level" -> androidx.compose.ui.graphics.Color(0xFFE8A827)
+            "Junior" -> androidx.compose.ui.graphics.Color(0xFF9BCB2E)
+            "Apprentice" -> androidx.compose.ui.graphics.Color(0xFF3DBA8A)
+            "Expert" -> androidx.compose.ui.graphics.Color(0xFF3DA9C8)
+            "Veteran" -> androidx.compose.ui.graphics.Color(0xFF7567C8)
+            else -> androidx.compose.ui.graphics.Color(0xFFB95BE3)
+        }
 
     fun switchRewardType() {
         rewardType =
@@ -82,8 +133,82 @@ class RewardViewModel : ViewModel() {
         selectedAnimal = animal
     }
 
+    /** Add spendable points and lifetime earned points together. */
+    fun earnPoints(amount: Int) {
+        if (amount <= 0) return
+
+        currentPoint += amount
+        totalEarnedPoints += amount
+    }
+
+    /** Spend points. This only changes the spendable balance. */
+    fun spendPoints(amount: Int): Boolean {
+        if (amount <= 0 || currentPoint < amount) return false
+
+        currentPoint -= amount
+        return true
+    }
+
+    /**
+     * Kept for simple testing/backward compatibility. New earning logic should
+     * use earnPoints() so lifetime achievement progress stays correct.
+     */
     fun updatePoint(point: Int) {
-        currentPoint = point
+        currentPoint = point.coerceAtLeast(0)
+    }
+
+    fun recordReportSubmitted() {
+        reportCount++
+        refreshAchievements()
+    }
+
+    fun recordAnimalDiscovered(animalName: String) {
+        if (!discoveredAnimals.contains(animalName)) {
+            discoveredAnimals.add(animalName)
+            refreshAchievements()
+        }
+    }
+
+    fun recordLogin() {
+        loginCount++
+        refreshAchievements()
+    }
+
+    fun recordGuidebookCompleted() {
+        guidebookCount++
+        refreshAchievements()
+    }
+
+    private fun progressFor(achievement: Achievement): Int {
+        return when (achievement.type) {
+            AchievementType.REPORTS -> reportCount
+            AchievementType.UNIQUE_ANIMALS -> discoveredAnimals.size
+            AchievementType.LION_TRACKER -> if (discoveredAnimals.contains("LION")) 1 else 0
+            AchievementType.LOGINS -> loginCount
+            AchievementType.GUIDEBOOK -> guidebookCount
+        }.coerceAtMost(achievement.target)
+    }
+
+    private fun refreshAchievements() {
+        _achievements.indices.forEach { index ->
+            val achievement = _achievements[index]
+            val newProgress = progressFor(achievement)
+            val newlyUnlocked = !achievement.unlocked && newProgress >= achievement.target
+
+            if (newlyUnlocked) {
+                // Mark the achievement first so repeated events cannot grant the
+                // same reward more than once.
+                _achievements[index] = achievement.copy(
+                    progress = newProgress,
+                    unlocked = true,
+                    rewardGranted = true
+                )
+
+                earnPoints(achievement.rewardPoints)
+            } else if (newProgress != achievement.progress) {
+                _achievements[index] = achievement.copy(progress = newProgress)
+            }
+        }
     }
 
     fun updateInteraction(message: String) {
@@ -185,8 +310,8 @@ class RewardViewModel : ViewModel() {
             return
         }
 
-        // Deduct points
-        currentPoint -= totalPrice
+        // Deduct only spendable points. Achievement/rank progress is unchanged.
+        if (!spendPoints(totalPrice)) return
 
         // Find item
         val index =

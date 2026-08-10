@@ -16,7 +16,6 @@ import com.example.assignment.components.animal.AnimalDisplay
 import com.example.assignment.viewmodel.AnimalType
 import com.example.assignment.viewmodel.RewardViewModel
 import com.example.assignment.R
-
 @Composable
 fun AnimalContent(
 
@@ -73,6 +72,10 @@ fun AnimalContent(
 
                     "Hello ${rewardViewModel.selectedAnimal.name}!"
 
+                )
+
+                rewardViewModel.recordAnimalDiscovered(
+                    rewardViewModel.selectedAnimal.name
                 )
 
             }

@@ -1,7 +1,6 @@
 package com.example.assignment.navigation
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -9,8 +8,8 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -157,6 +156,11 @@ fun AppNavigation(navController: NavHostController) {
 
     val rewardViewModel: RewardViewModel = viewModel()
 
+    // Treat each app launch as one login event for the achievement system.
+    LaunchedEffect(Unit) {
+        rewardViewModel.recordLogin()
+    }
+
     NavHost(
         navController = navController,
         startDestination = Page.Home.route
@@ -194,8 +198,9 @@ fun AppNavigation(navController: NavHostController) {
                 backStackEntry.arguments?.getString("type") ?: ""
 
             ReportSecondPage(
-                navController,
-                reportType = type
+                navController = navController,
+                reportType = type,
+                rewardViewModel = rewardViewModel
             )
         }
 
@@ -232,7 +237,10 @@ fun AppNavigation(navController: NavHostController) {
 
         composable(Page.Achievements.route){
 
-            AchievementsPage(navController)
+            AchievementsPage(
+                navController = navController,
+                rewardViewModel = rewardViewModel
+            )
 
         }
 

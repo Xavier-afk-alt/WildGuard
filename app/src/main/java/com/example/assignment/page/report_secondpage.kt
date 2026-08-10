@@ -26,6 +26,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.assignment.R
+import com.example.assignment.viewmodel.RewardViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,7 +34,9 @@ fun ReportSecondPage(
 
     navController: NavController,
 
-    reportType: String
+    reportType: String,
+
+    rewardViewModel: RewardViewModel
 
 ) {
 
@@ -104,7 +107,12 @@ fun ReportSecondPage(
         Spacer(modifier = Modifier.height(25.dp))
 
         Button(
-            onClick = {},
+            onClick = {
+                // Count the report only after the user presses the submit action.
+                // This can later be moved to the real repository/database success callback.
+                rewardViewModel.recordReportSubmitted()
+                navController.popBackStack()
+            },
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF2E7D32)
