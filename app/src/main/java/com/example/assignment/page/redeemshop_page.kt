@@ -1,10 +1,8 @@
 package com.example.assignment.page
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -14,6 +12,7 @@ import com.example.assignment.components.RedeemHeader
 import com.example.assignment.components.RewardCard
 import com.example.assignment.viewmodel.RewardViewModel
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,8 +23,8 @@ import com.example.assignment.data.RewardItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.unit.dp
+import com.example.assignment.data.PurchaseResult
+import com.example.assignment.viewmodel.InventoryViewModel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -33,10 +32,11 @@ fun RedeemShopPage(
 
     navController: NavController,
 
-    rewardViewModel: RewardViewModel
+    rewardViewModel: RewardViewModel,
+
+    inventoryViewModel: InventoryViewModel
 
 ) {
-
     // Currently selected reward
     var selectedReward by remember {
         mutableStateOf<RewardItem?>(null)
@@ -48,21 +48,19 @@ fun RedeemShopPage(
     }
 
     // Snackbar
-    val snackbarHostState =
-        remember {
-            SnackbarHostState()
+    val snackbarHostState = remember {
+        SnackbarHostState()
+    }
+
+    val scope = rememberCoroutineScope()
+
+    Scaffold(
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
         }
-
-    val scope =
-        rememberCoroutineScope()
-
-
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
-
+    ) { paddingValues ->
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize().padding(paddingValues)
         ) {
 
             // =========================
@@ -185,23 +183,6 @@ fun RedeemShopPage(
 
         }
 
-
-        // =========================
-        // SNACKBAR
-        // =========================
-
-        SnackbarHost(
-
-            hostState = snackbarHostState,
-
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(16.dp)
-
-        )
-
-
         // =========================
         // PURCHASE CONFIRMATION
         // =========================
@@ -230,14 +211,42 @@ fun RedeemShopPage(
 
                 onConfirm = {
 
-                    rewardViewModel.purchaseReward(
-                        reward,
-                        selectedQuantity
-                    )
+                    val result =
+                        rewardViewModel.purchaseReward(
+                            reward,
+                            selectedQuantity
+                        )
+
+                    if (result == PurchaseResult.SUCCESS) {
+                        inventoryViewModel.addItem(
+                            reward,
+                            selectedQuantity
+                        )
+                    }
 
                     selectedReward = null
-
                     selectedQuantity = 1
+
+                    val message = when (result) {
+                        PurchaseResult.SUCCESS ->
+                            "✓ Successfully redeemed ${reward.title}"
+
+                        PurchaseResult.COMING_SOON ->
+                            "${reward.title} is coming soon."
+
+                        PurchaseResult.SOLD_OUT ->
+                            "${reward.title} is sold out."
+
+                        PurchaseResult.EXCEEDS_STOCK ->
+                            "Not enough ${reward.title} in stock."
+
+                        PurchaseResult.INSUFFICIENT_POINTS ->
+                            "Insufficient points to purchase ${reward.title}."
+                    }
+
+                    scope.launch {
+                        snackbarHostState.showSnackbar(message)
+                    }
 
                 }
 

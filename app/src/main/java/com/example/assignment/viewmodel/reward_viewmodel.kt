@@ -9,6 +9,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import com.example.assignment.data.Achievement
 import com.example.assignment.data.AchievementType
+import androidx.compose.ui.graphics.Color
+import com.example.assignment.data.PointEarningEvent
+import com.example.assignment.data.PointSource
+import com.example.assignment.data.PurchaseResult
+import java.time.LocalDate
+import java.util.UUID
 import com.example.assignment.data.rewardItems as initialRewardItems
 import com.example.assignment.data.achievementItems as initialAchievementItems
 
@@ -56,6 +62,14 @@ class RewardViewModel : ViewModel() {
     // so spending points never reduces achievement/rank progress.
     var totalEarnedPoints by mutableIntStateOf(0)
         private set
+
+    // Point rewards waiting to be displayed on RewardPage.
+    private val _pendingPointEvents = mutableStateListOf<PointEarningEvent>()
+
+    val pendingPointEvents: List<PointEarningEvent>
+        get() = _pendingPointEvents
+
+    private var lastDailyLoginDate by mutableStateOf<String?>(null)
 
     private val _achievements =
         mutableStateListOf<Achievement>().apply {
@@ -110,15 +124,15 @@ class RewardViewModel : ViewModel() {
         }
 
     // Colour used by the achievement banner to match the current rank.
-    val statusColor: androidx.compose.ui.graphics.Color
+    val statusColor: Color
         get() = when (status) {
-            "Starter" -> androidx.compose.ui.graphics.Color(0xFFE7B0B0)
-            "Entry-level" -> androidx.compose.ui.graphics.Color(0xFFE8A827)
-            "Junior" -> androidx.compose.ui.graphics.Color(0xFF9BCB2E)
-            "Apprentice" -> androidx.compose.ui.graphics.Color(0xFF3DBA8A)
-            "Expert" -> androidx.compose.ui.graphics.Color(0xFF3DA9C8)
-            "Veteran" -> androidx.compose.ui.graphics.Color(0xFF7567C8)
-            else -> androidx.compose.ui.graphics.Color(0xFFB95BE3)
+            "Starter" -> Color(0xFFE7B0B0)
+            "Entry-level" -> Color(0xFFE8A827)
+            "Junior" -> Color(0xFF9BCB2E)
+            "Apprentice" -> Color(0xFF3DBA8A)
+            "Expert" -> Color(0xFF3DA9C8)
+            "Veteran" -> Color(0xFF7567C8)
+            else -> Color(0xFFB95BE3)
         }
 
     fun switchRewardType() {
@@ -134,17 +148,32 @@ class RewardViewModel : ViewModel() {
     }
 
     /** Add spendable points and lifetime earned points together. */
-    fun earnPoints(amount: Int) {
+    fun earnPoints(
+        amount: Int,
+        source: PointSource = PointSource.OTHER,
+        title: String = "Points earned",
+        description: String = "",
+        eventId: String = UUID.randomUUID().toString()
+    ) {
         if (amount <= 0) return
 
         currentPoint += amount
         totalEarnedPoints += amount
+
+        _pendingPointEvents.add(
+            PointEarningEvent(
+                id = eventId,
+                source = source,
+                points = amount,
+                title = title,
+                description = description
+            )
+        )
     }
 
     /** Spend points. This only changes the spendable balance. */
     fun spendPoints(amount: Int): Boolean {
         if (amount <= 0 || currentPoint < amount) return false
-
         currentPoint -= amount
         return true
     }
@@ -157,9 +186,52 @@ class RewardViewModel : ViewModel() {
         currentPoint = point.coerceAtLeast(0)
     }
 
+    /**
+     * Temporary local daily-login rule. Later Supabase should enforce this
+     * with a unique user/date transaction.
+     */
+    fun recordDailyLogin() {
+        val today = LocalDate.now().toString()
+        if (lastDailyLoginDate == today) return
+
+        lastDailyLoginDate = today
+        loginCount++
+
+        earnPoints(
+            amount = 10,
+            source = PointSource.DAILY_LOGIN,
+            title = "Daily Visit",
+            description = "Thanks for visiting WildGuard today.",
+            eventId = "daily_login_$today"
+        )
+
+        refreshAchievements()
+    }
+
+    /** Backward-compatible name for existing navigation code. */
+    fun recordLogin() {
+        recordDailyLogin()
+    }
+
     fun recordReportSubmitted() {
         reportCount++
+        earnPoints(
+            amount = 50,
+            source = PointSource.REPORT,
+            title = "Report Submitted",
+            description = "Thank you for helping protect wildlife."
+        )
         refreshAchievements()
+    }
+
+    /** Optional more specific event for a future animal-sighting flow. */
+    fun recordAnimalSightingSubmitted() {
+        earnPoints(
+            amount = 50,
+            source = PointSource.ANIMAL_SIGHTING,
+            title = "Animal Sighting",
+            description = "Your animal sighting was submitted successfully."
+        )
     }
 
     fun recordAnimalDiscovered(animalName: String) {
@@ -169,13 +241,14 @@ class RewardViewModel : ViewModel() {
         }
     }
 
-    fun recordLogin() {
-        loginCount++
-        refreshAchievements()
-    }
-
     fun recordGuidebookCompleted() {
         guidebookCount++
+        earnPoints(
+            amount = 25,
+            source = PointSource.GUIDEBOOK,
+            title = "Guidebook Completed",
+            description = "You completed a wildlife safety guide."
+        )
         refreshAchievements()
     }
 
@@ -204,11 +277,21 @@ class RewardViewModel : ViewModel() {
                     rewardGranted = true
                 )
 
-                earnPoints(achievement.rewardPoints)
+                earnPoints(
+                    amount = achievement.rewardPoints,
+                    source = PointSource.ACHIEVEMENT,
+                    title = achievement.title,
+                    description = "Achievement unlocked: ${achievement.title}",
+                    eventId = "achievement_${achievement.id}"
+                )
             } else if (newProgress != achievement.progress) {
                 _achievements[index] = achievement.copy(progress = newProgress)
             }
         }
+    }
+
+    fun removePointEvent(eventId: String) {
+        _pendingPointEvents.removeAll { it.id == eventId }
     }
 
     fun updateInteraction(message: String) {
@@ -216,123 +299,59 @@ class RewardViewModel : ViewModel() {
     }
 
     fun completeObjective(objective: String) {
-
-        when (objective) {
-
-            "report" -> {
-                interactionMessage =
-                    "Thanks for protecting me!"
-            }
-
-            "plant" -> {
-                interactionMessage =
-                    "The forest feels healthier!"
-            }
-
-            "login" -> {
-                interactionMessage =
-                    "Welcome back!"
-            }
-
-            "redeem" -> {
-                interactionMessage =
-                    "I love your gift!"
-            }
-
-            else -> {
-                interactionMessage =
-                    "Let's continue protecting wildlife!"
-            }
+        interactionMessage = when (objective) {
+            "report" -> "Thanks for protecting me!"
+            "plant" -> "The forest feels healthier!"
+            "login" -> "Welcome back!"
+            "redeem" -> "I love your gift!"
+            else -> "Let's continue protecting wildlife!"
         }
     }
 
     fun unlockInteraction(message: String) {
-
         if (!unlockedInteractions.contains(message)) {
-
             unlockedInteractions.add(message)
-
         }
 
         currentInteractionIndex = unlockedInteractions.lastIndex
-
         interactionMessage = message
-
         showInteraction = true
-
     }
 
     fun nextInteraction() {
-
         if (unlockedInteractions.isEmpty()) return
 
         currentInteractionIndex++
-
-        if (currentInteractionIndex >= unlockedInteractions.size)
-
+        if (currentInteractionIndex >= unlockedInteractions.size) {
             currentInteractionIndex = 0
+        }
 
-        interactionMessage =
-
-            unlockedInteractions[currentInteractionIndex]
-
+        interactionMessage = unlockedInteractions[currentInteractionIndex]
     }
 
     fun purchaseReward(
         reward: RewardItem,
         quantity: Int
-    ) {
+    ): PurchaseResult {
+        if (reward.stock < 0) return PurchaseResult.COMING_SOON
+        if (reward.stock == 0) return PurchaseResult.SOLD_OUT
+        if (quantity > reward.stock) return PurchaseResult.EXCEEDS_STOCK
 
-        if (quantity <= 0) {
-            return
+        val totalPrice = reward.price * quantity
+
+        if (!spendPoints(totalPrice)) {
+            return PurchaseResult.INSUFFICIENT_POINTS
         }
 
-        // Low stock / unavailable
-        if (reward.stock < 0) {
-            return
-        }
+        val index = _rewardItems.indexOfFirst { it.id == reward.id }
 
-        // Sold out
-        if (reward.stock == 0) {
-            return
-        }
+        val oldReward = _rewardItems[index]
 
-        // Quantity exceeds stock
-        if (quantity > reward.stock) {
-            return
-        }
+        _rewardItems[index] = oldReward.copy(
+            stock = oldReward.stock - quantity,
+            purchased = true
+        )
 
-        val totalPrice =
-            reward.price * quantity
-
-        // Not enough points
-        if (currentPoint < totalPrice) {
-            return
-        }
-
-        // Deduct only spendable points. Achievement/rank progress is unchanged.
-        if (!spendPoints(totalPrice)) return
-
-        // Find item
-        val index =
-            _rewardItems.indexOfFirst {
-                it.id == reward.id
-            }
-
-        if (index != -1) {
-
-            val oldReward =
-                _rewardItems[index]
-
-            _rewardItems[index] =
-                oldReward.copy(
-
-                    stock =
-                        oldReward.stock - quantity,
-
-                    purchased = true
-
-                )
-        }
+        return PurchaseResult.SUCCESS
     }
 }

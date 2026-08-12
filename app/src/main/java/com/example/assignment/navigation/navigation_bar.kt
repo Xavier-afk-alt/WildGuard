@@ -38,6 +38,7 @@ import com.example.assignment.page.profile.HelpSupportPage
 import com.example.assignment.page.profile.MyActivitiesPage
 import com.example.assignment.page.profile.MyRewardsPage
 import com.example.assignment.page.profile.SettingsPage
+import com.example.assignment.viewmodel.InventoryViewModel
 
 //create navigation route
 sealed class Page(val route: String) {
@@ -69,41 +70,29 @@ sealed class Page(val route: String) {
 
 //create bottom nav items
 data class BottomNavItem(
-    val title: String,
-    val route: String,
-    val icon: Int
+    val title: String, val route: String, val icon: Int
 )
 
 val bottomItems = listOf(
 
     BottomNavItem(
-        "Home",
-        Page.Home.route,
-        R.drawable.home
+        "Home", Page.Home.route, R.drawable.home
     ),
 
     BottomNavItem(
-        "Explore",
-        Page.Explore.route,
-        R.drawable.explore
+        "Explore", Page.Explore.route, R.drawable.explore
     ),
 
     BottomNavItem(
-        "Report",
-        Page.Report.route,
-        R.drawable.report
+        "Report", Page.Report.route, R.drawable.report
     ),
 
     BottomNavItem(
-        "Reward",
-        Page.Reward.route,
-        R.drawable.reward
+        "Reward", Page.Reward.route, R.drawable.reward
     ),
 
     BottomNavItem(
-        "Profile",
-        Page.Profile.route,
-        R.drawable.profile
+        "Profile", Page.Profile.route, R.drawable.profile
     )
 )
 
@@ -137,15 +126,13 @@ fun BottomBar(navController: NavHostController) {
 
                 icon = {
                     Icon(
-                        painter = painterResource(id = item.icon),
-                        contentDescription = item.title
+                        painter = painterResource(id = item.icon), contentDescription = item.title
                     )
                 },
 
                 label = {
                     Text(item.title)
-                }
-            )
+                })
         }
     }
 }
@@ -155,6 +142,7 @@ fun BottomBar(navController: NavHostController) {
 fun AppNavigation(navController: NavHostController) {
 
     val rewardViewModel: RewardViewModel = viewModel()
+    val inventoryViewModel: InventoryViewModel = viewModel()
 
     // Treat each app launch as one login event for the achievement system.
     LaunchedEffect(Unit) {
@@ -162,8 +150,7 @@ fun AppNavigation(navController: NavHostController) {
     }
 
     NavHost(
-        navController = navController,
-        startDestination = Page.Home.route
+        navController = navController, startDestination = Page.Home.route
     ) {
 
         composable(Page.Home.route) {
@@ -194,13 +181,10 @@ fun AppNavigation(navController: NavHostController) {
             Page.ReportDetail.route
         ) { backStackEntry ->
 
-            val type =
-                backStackEntry.arguments?.getString("type") ?: ""
+            val type = backStackEntry.arguments?.getString("type") ?: ""
 
             ReportSecondPage(
-                navController = navController,
-                reportType = type,
-                rewardViewModel = rewardViewModel
+                navController = navController, reportType = type, rewardViewModel = rewardViewModel
             )
         }
 
@@ -211,52 +195,58 @@ fun AppNavigation(navController: NavHostController) {
         composable(Page.Reward.route) {
             RewardPage(
                 navController = navController,
-                rewardViewModel = rewardViewModel
+                rewardViewModel = rewardViewModel,
+                inventoryViewModel = inventoryViewModel
+
             )
         }
 
         composable(Page.Redeem.route) {
-            RedeemShopPage(navController, rewardViewModel)
+            RedeemShopPage(
+                navController = navController,
+                rewardViewModel = rewardViewModel,
+                inventoryViewModel = inventoryViewModel
+
+            )
         }
 
         composable(Page.Profile.route) {
             ProfilePage(navController)
         }
 
-        composable(Page.Activities.route){
+        composable(Page.Activities.route) {
 
             MyActivitiesPage(navController)
 
         }
 
-        composable(Page.MyRewards.route){
+        composable(Page.MyRewards.route) {
 
             MyRewardsPage(navController)
 
         }
 
-        composable(Page.Achievements.route){
+        composable(Page.Achievements.route) {
 
             AchievementsPage(
-                navController = navController,
-                rewardViewModel = rewardViewModel
+                navController = navController, rewardViewModel = rewardViewModel
             )
 
         }
 
-        composable(Page.EditProfile.route){
+        composable(Page.EditProfile.route) {
 
             EditProfilePage(navController)
 
         }
 
-        composable(Page.Settings.route){
+        composable(Page.Settings.route) {
 
             SettingsPage(navController)
 
         }
 
-        composable(Page.Help.route){
+        composable(Page.Help.route) {
 
             HelpSupportPage(navController)
 
