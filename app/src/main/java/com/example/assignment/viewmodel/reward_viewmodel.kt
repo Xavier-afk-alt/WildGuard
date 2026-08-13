@@ -15,6 +15,7 @@ import com.example.assignment.data.PointSource
 import com.example.assignment.data.PurchaseResult
 import java.time.LocalDate
 import java.util.UUID
+import kotlin.random.Random
 import com.example.assignment.data.rewardItems as initialRewardItems
 import com.example.assignment.data.achievementItems as initialAchievementItems
 
@@ -55,7 +56,7 @@ class RewardViewModel : ViewModel() {
 
     // Spendable reward points. This balance can go up when points are earned
     // and down when a reward is purchased.
-    var currentPoint by mutableIntStateOf(0)
+    var currentPoint by mutableIntStateOf(5015)
         private set
 
     // Lifetime points earned. This is intentionally separate from currentPoint
@@ -292,6 +293,89 @@ class RewardViewModel : ViewModel() {
 
     fun removePointEvent(eventId: String) {
         _pendingPointEvents.removeAll { it.id == eventId }
+    }
+
+    private val animalShortMessages = mapOf(
+        AnimalType.TIGER to listOf(
+            "The tiger looks calm today.",
+            "Someone is watching you from the den.",
+            "The tiger gives a sleepy little blink."
+        ),
+        AnimalType.FOX to listOf(
+            "The fox twitches its ears.",
+            "The fox seems curious about you.",
+            "A quiet fox nap continues."
+        ),
+        AnimalType.BEAR to listOf(
+            "The bear is enjoying a peaceful moment.",
+            "The bear looks comfortable.",
+            "A gentle growl echoes from the den."
+        ),
+        AnimalType.PANDA to listOf(
+            "The panda looks happy to see you.",
+            "The panda is having a peaceful day.",
+            "The panda slowly looks your way."
+        ),
+        AnimalType.KOALA to listOf(
+            "The koala is enjoying the quiet.",
+            "The koala gives a tiny yawn.",
+            "The koala looks comfortably sleepy."
+        ),
+        AnimalType.LION to listOf(
+            "The lion watches the area carefully.",
+            "The lion seems relaxed today.",
+            "A quiet roar comes from the habitat."
+        ),
+        AnimalType.CAT to listOf(
+            "The cat looks ready for attention.",
+            "The cat slowly flicks its tail.",
+            "The cat gives you a curious stare."
+        ),
+        AnimalType.WOLF to listOf(
+            "The wolf listens to the surroundings.",
+            "The wolf looks peaceful today.",
+            "The wolf raises its ears curiously."
+        ),
+        AnimalType.DOG to listOf(
+            "The dog looks excited to see you.",
+            "The dog gives a happy little wag.",
+            "The dog is enjoying the peaceful habitat."
+        )
+    )
+
+    private val plantShortMessages = listOf(
+        "The plant looks healthy today.",
+        "A little more sunlight would be nice.",
+        "The leaves gently move with the breeze.",
+        "The plant is growing steadily."
+    )
+
+    fun showRandomAnimalMessage() {
+        val messages = animalShortMessages[selectedAnimal].orEmpty()
+        if (messages.isNotEmpty()) {
+            unlockInteraction(messages[Random.nextInt(messages.size)])
+        }
+    }
+
+    fun showRandomPlantMessage() {
+        unlockInteraction(plantShortMessages[Random.nextInt(plantShortMessages.size)])
+    }
+
+    fun quickPatAnimal() {
+        unlockInteraction("${selectedAnimal.name} enjoyed the pat! ❤️")
+    }
+
+    fun quickWaterPlant() {
+        unlockInteraction("The plant feels refreshed after watering! 💧")
+    }
+
+    fun showNoToolMessage(tool: String) {
+        interactionMessage = when (tool) {
+            "pat" -> "You don't have a Pat Pat Hand in your inventory."
+            "watering" -> "You don't have a Watering Tool in your inventory."
+            else -> "You don't have the required tool."
+        }
+        showInteraction = true
     }
 
     fun updateInteraction(message: String) {

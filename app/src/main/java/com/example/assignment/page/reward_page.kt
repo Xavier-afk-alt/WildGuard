@@ -2,7 +2,6 @@ package com.example.assignment.page
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -13,9 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.assignment.components.InventoryQuickAccess
-import com.example.assignment.components.InventoryButton
 import androidx.navigation.NavController
 import com.example.assignment.components.*
 import com.example.assignment.viewmodel.InventoryViewModel
@@ -93,28 +90,24 @@ fun RewardPage(
 
             }
 
-            Spacer(
-                modifier = Modifier.weight(1f)
-            )
-
             when (rewardViewModel.rewardType) {
 
                 RewardType.PLANT -> {
-
                     PlantContent(
-                        rewardViewModel.currentPoint
+                        currentPoint = rewardViewModel.currentPoint,
+                        rewardViewModel = rewardViewModel,
+                        inventoryViewModel = inventoryViewModel,
+                        modifier = Modifier.weight(1f)
                     )
-
                 }
 
                 RewardType.ANIMAL -> {
-
                     AnimalContent(
-                        rewardViewModel
+                        rewardViewModel = rewardViewModel,
+                        inventoryViewModel = inventoryViewModel,
+                        modifier = Modifier.weight(1f)
                     )
-
                 }
-
             }
 
         }

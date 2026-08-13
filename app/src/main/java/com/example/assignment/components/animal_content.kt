@@ -1,5 +1,8 @@
 package com.example.assignment.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -9,6 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -16,214 +23,93 @@ import com.example.assignment.components.animal.AnimalDisplay
 import com.example.assignment.viewmodel.AnimalType
 import com.example.assignment.viewmodel.RewardViewModel
 import com.example.assignment.R
+import com.example.assignment.components.scene.AnimalScene
+import com.example.assignment.viewmodel.InventoryViewModel
+import kotlinx.coroutines.delay
+private const val PAT_HAND_ID = 1
+
 @Composable
 fun AnimalContent(
-
-    rewardViewModel: RewardViewModel
-
+    rewardViewModel: RewardViewModel,
+    inventoryViewModel: InventoryViewModel,
+    modifier: Modifier = Modifier
 ) {
+    var selectorExpanded by remember { mutableStateOf(false) }
+    var showPatTool by remember { mutableStateOf(false) }
+
+    LaunchedEffect(rewardViewModel.selectedAnimal) {
+        rewardViewModel.recordAnimalDiscovered(
+            rewardViewModel.selectedAnimal.name
+        )
+    }
+
+    LaunchedEffect(showPatTool) {
+        if (showPatTool) {
+            delay(1200)
+            showPatTool = false
+        }
+    }
+
     Box(
-
-        modifier = Modifier.fillMaxSize()
-
+        modifier = modifier.fillMaxSize()
     ) {
+        AnimalScene(
+            animal = rewardViewModel.selectedAnimal,
+            showPatTool = showPatTool,
+            modifier = Modifier.fillMaxSize(),
+            onShortPress = {
+                rewardViewModel.showRandomAnimalMessage()
+            },
+            onLongPress = {
+                if (inventoryViewModel.useItem(PAT_HAND_ID)) {
+                    showPatTool = true
+                    rewardViewModel.quickPatAnimal()
+                } else {
+                    rewardViewModel.showNoToolMessage("pat")
+                }
+            }
+        )
 
         Column(
-
-            modifier = Modifier.fillMaxSize(),
-
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
-
         ) {
+            AnimalSelector(
+                selectedAnimal = rewardViewModel.selectedAnimal,
 
-            if (rewardViewModel.showInteraction) {
+                expanded = selectorExpanded,
 
+                onToggle = {
+                    selectorExpanded = !selectorExpanded
+                },
+
+                onAnimalSelected = { animal ->
+
+                    rewardViewModel.selectAnimal(animal)
+
+                    // Automatically close after selection
+                    selectorExpanded = false
+                }
+            )
+
+            AnimatedVisibility(
+                visible = rewardViewModel.showInteraction,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
                 InteractionBubble(
                     text = rewardViewModel.interactionMessage
                 )
-
             }
-
-            Spacer(
-                modifier = Modifier.height(20.dp)
-            )
-
-            AnimalSelector(
-
-                selectedAnimal =
-                    rewardViewModel.selectedAnimal
-
-            ) { animal ->
-
-                rewardViewModel.selectAnimal(animal)
-
-            }
-
-            Spacer(Modifier.height(20.dp))
-
-            Text(
-                text = rewardViewModel.selectedAnimal.name,
-                modifier = Modifier.padding(20.dp)
-            )
-
-            LaunchedEffect(rewardViewModel.selectedAnimal) {
-
-                rewardViewModel.unlockInteraction(
-
-                    "Hello ${rewardViewModel.selectedAnimal.name}!"
-
-                )
-
-                rewardViewModel.recordAnimalDiscovered(
-                    rewardViewModel.selectedAnimal.name
-                )
-
-            }
-
-            when (rewardViewModel.selectedAnimal) {
-
-                AnimalType.TIGER -> {
-
-                    AnimalDisplay(
-
-                        image = R.drawable.tiger_animal,
-
-                        animalName = "Tiger",
-
-                        description = "Sleeping peacefully."
-
-                    )
-
-                }
-
-                AnimalType.FOX -> {
-
-                    AnimalDisplay(
-
-                        image = R.drawable.fox_animal,
-
-                        animalName = "Fox",
-
-                        description = "Sleeping peacefully."
-
-                    )
-
-                }
-
-                AnimalType.BEAR -> {
-
-                    AnimalDisplay(
-
-                        image = R.drawable.bear_animal,
-
-                        animalName = "Bear",
-
-                        description = "Sleeping peacefully."
-
-                    )
-
-                }
-
-                AnimalType.PANDA -> {
-
-                    AnimalDisplay(
-
-                        image = R.drawable.panda_animal,
-
-                        animalName = "Panda",
-
-                        description = "Sleeping peacefully."
-
-                    )
-
-                }
-
-                AnimalType.KOALA -> {
-
-                    AnimalDisplay(
-
-                        image = R.drawable.koala_animal,
-
-                        animalName = "Koala",
-
-                        description = "Sleeping peacefully."
-
-                    )
-
-                }
-
-                AnimalType.LION -> {
-
-                    AnimalDisplay(
-
-                        image = R.drawable.lion_animal,
-
-                        animalName = "Lion",
-
-                        description = "Sleeping peacefully."
-
-                    )
-
-                }
-
-                AnimalType.CAT -> {
-
-                    AnimalDisplay(
-
-                        image = R.drawable.cat_animal,
-
-                        animalName = "Cat",
-
-                        description = "Sleeping peacefully."
-
-                    )
-
-                }
-
-                AnimalType.WOLF -> {
-
-                    AnimalDisplay(
-
-                        image = R.drawable.wolf_animal,
-
-                        animalName = "Wolf",
-
-                        description = "Sleeping peacefully."
-
-                    )
-
-                }
-
-                AnimalType.DOG -> {
-
-                    AnimalDisplay(
-
-                        image = R.drawable.dog_animal,
-
-                        animalName = "Dog",
-
-                        description = "Sleeping peacefully."
-
-                    )
-                }
-
-            }
-
         }
 
-        /*
-        HiddenInteractionButton(
-
+        Text(
+            text = rewardViewModel.selectedAnimal.name,
             modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(16.dp),
-
-            visible = rewardViewModel.showInteractionButton
-
-        ) {
-
-            rewardViewModel.nextInteraction()
-
-        }*/
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 20.dp)
+        )
     }
 }
