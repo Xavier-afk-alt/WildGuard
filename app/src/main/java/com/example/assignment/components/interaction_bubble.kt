@@ -1,7 +1,6 @@
 package com.example.assignment.components
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -17,12 +16,12 @@ import com.example.assignment.R
 
 @Composable
 fun InteractionBubble(
-
-    text: String
-
+    text: String,
+    modifier: Modifier = Modifier
 ) {
 
     Row(
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically
     ) {
 
@@ -42,7 +41,7 @@ fun InteractionBubble(
             ) {
 
                 Image(
-                    painter = painterResource(R.drawable.ic_launcher_foreground/*ic_heart*/),
+                    painter = painterResource(R.drawable.ic_launcher_foreground),//heart),
                     contentDescription = null,
                     modifier = Modifier.size(28.dp)
                 )

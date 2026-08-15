@@ -361,12 +361,14 @@ class RewardViewModel : ViewModel() {
         unlockInteraction(plantShortMessages[Random.nextInt(plantShortMessages.size)])
     }
 
-    fun quickPatAnimal() {
+    fun quickPatAnimal(): Boolean {
         unlockInteraction("${selectedAnimal.name} enjoyed the pat! ❤️")
+        return true
     }
 
-    fun quickWaterPlant() {
+    fun quickWaterPlant(): Boolean {
         unlockInteraction("The plant feels refreshed after watering! 💧")
+        return true
     }
 
     fun showNoToolMessage(tool: String) {
@@ -400,6 +402,10 @@ class RewardViewModel : ViewModel() {
         currentInteractionIndex = unlockedInteractions.lastIndex
         interactionMessage = message
         showInteraction = true
+    }
+
+    fun hideInteraction() {
+        showInteraction = false
     }
 
     fun nextInteraction() {

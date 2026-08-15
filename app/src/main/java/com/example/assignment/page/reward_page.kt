@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.example.assignment.components.InventoryQuickAccess
 import androidx.navigation.NavController
 import com.example.assignment.components.*
+import com.example.assignment.data.InventoryItem
 import com.example.assignment.viewmodel.InventoryViewModel
 import com.example.assignment.viewmodel.RewardType
 import com.example.assignment.viewmodel.RewardViewModel
@@ -33,8 +34,12 @@ fun RewardPage(
         mutableStateOf<String?>(null)
     }
 
-    var showInventoryQuickAccess by remember {
+    var showInventory by remember {
         mutableStateOf(false)
+    }
+
+    var selectedInventoryItem by remember {
+        mutableStateOf<InventoryItem?>(null)
     }
 
     // Display queued point rewards one by one whenever RewardPage is visible.
@@ -51,6 +56,18 @@ fun RewardPage(
 
         delay(350.milliseconds)
         rewardViewModel.removePointEvent(firstPendingEvent.id)
+    }
+
+    LaunchedEffect(
+        rewardViewModel.showInteraction,
+        rewardViewModel.interactionMessage
+    ) {
+        if (rewardViewModel.showInteraction) {
+
+            delay(3000.milliseconds)
+
+            rewardViewModel.hideInteraction()
+        }
     }
 
     Box(
@@ -109,7 +126,6 @@ fun RewardPage(
                     )
                 }
             }
-
         }
 
 
@@ -118,12 +134,16 @@ fun RewardPage(
         // ==========================================
 
         InventoryQuickAccess(
+            inventoryViewModel = inventoryViewModel,
 
-            expanded = showInventoryQuickAccess,
+            expanded = showInventory,
 
             onToggle = {
-                showInventoryQuickAccess =
-                    !showInventoryQuickAccess
+                showInventory = !showInventory
+            },
+
+            onItemClick = { item ->
+                selectedInventoryItem = item
             },
 
             modifier = Modifier
@@ -134,7 +154,46 @@ fun RewardPage(
                 )
         )
 
+        selectedInventoryItem?.let { item ->
 
+            InventoryItemDialog(
+                item = item,
+
+                onDismiss = {
+                    selectedInventoryItem = null
+                },
+
+                onQuickAccess = {
+
+                    when (item.rewardId) {
+
+                        1 -> {
+
+                            if (rewardViewModel.quickPatAnimal()) {
+
+                                inventoryViewModel.useItem(
+                                    item.rewardId
+                                )
+
+                                selectedInventoryItem = null
+                            }
+                        }
+
+                        2 -> {
+
+                            if (rewardViewModel.quickWaterPlant()) {
+
+                                inventoryViewModel.useItem(
+                                    item.rewardId
+                                )
+
+                                selectedInventoryItem = null
+                            }
+                        }
+                    }
+                }
+            )
+        }
 
         // ==========================================
         // ANIMAL / PLANT SWITCH
@@ -165,4 +224,63 @@ fun RewardPage(
 
     }
 
+    if (
+        rewardViewModel.showInteraction &&
+        rewardViewModel.interactionMessage.isNotEmpty()
+    ) {
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            InteractionBubble(
+                text = rewardViewModel.interactionMessage,
+                modifier = Modifier
+                    .padding(
+                        horizontal = 16.dp,
+                        vertical = 4.dp
+                    )
+                    .offset(y = 195.dp)
+            )
+        }
+    }
+
 }
+
+/*
+fun getQuickAccessAction(
+    item: InventoryItem
+): (() -> Unit)? {
+
+    return when (item.rewardId) {
+
+        // Seed
+        1 -> {
+            {
+                // Plant action
+            }
+        }
+
+        // Water
+        2 -> {
+            {
+                // Water action
+            }
+        }
+
+        // Animal food
+        3 -> {
+            {
+                // Feed action
+            }
+        }
+
+        // Medicine
+        4 -> {
+            {
+                // Treat action
+            }
+        }
+
+        else -> null
+    }
+}*/
