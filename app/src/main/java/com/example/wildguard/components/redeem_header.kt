@@ -4,8 +4,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -15,52 +17,49 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.wildguard.R
 
+
 @Composable
 fun RedeemHeader(
+    coin: Int,
+    onBack: () -> Unit
+) {
 
-    coin:Int,
-
-    onBack:()->Unit
-
-){
+    // Match the visual structure of PageTopBar used by
+    // AchievementsPage, while keeping the coin balance on the right.
     Row(
-
-        modifier= Modifier
+        modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
-
-        verticalAlignment= Alignment.CenterVertically
-
-    ){
+        verticalAlignment = Alignment.CenterVertically
+    ) {
 
         IconButton(
-
-            onClick=onBack
-
-        ){
-
-            Icon(painter = painterResource(R.drawable.back),null)
-
+            onClick = onBack
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.back),
+                contentDescription = "Back"
+            )
         }
 
-        Spacer(Modifier.weight(1f))
-
-        Text(
-
-            "Redeem Shop",
-
-            fontWeight= FontWeight.Bold
-
+        Spacer(
+            modifier = Modifier.width(8.dp)
         )
 
-        Spacer(Modifier.weight(1f))
-
         Text(
-
-            "🪙 $coin"
-
+            text = "Redeem Shop",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
         )
 
+        Spacer(
+            modifier = Modifier.weight(1f)
+        )
+
+        Text(
+            text = "🪙 $coin",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold
+        )
     }
-
 }

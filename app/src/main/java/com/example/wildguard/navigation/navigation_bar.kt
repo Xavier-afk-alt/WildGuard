@@ -25,6 +25,7 @@ import com.example.wildguard.page.ReportSecondPage
 import com.example.wildguard.page.RewardPage
 import com.example.wildguard.viewmodel.RewardViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.example.wildguard.page.ExplorePage
 import com.example.wildguard.page.HomePage
 import com.example.wildguard.page.ProfilePage
@@ -98,6 +99,24 @@ val bottomItems = listOf(
     )
 )
 
+fun navigateToTopLevel(
+    navController: NavController,
+    route: String
+) {
+    navController.navigate(route) {
+
+        popUpTo(
+            navController.graph.startDestinationId
+        ) {
+            saveState = true
+        }
+
+        launchSingleTop = true
+
+        restoreState = true
+    }
+}
+
 //create bottom nav bar
 @Composable
 fun BottomBar(navController: NavHostController) {
@@ -114,16 +133,10 @@ fun BottomBar(navController: NavHostController) {
                 selected = currentRoute == item.route,
 
                 onClick = {
-
-                    navController.navigate(item.route) {
-
-                        popUpTo(navController.graph.startDestinationId) {
-                            saveState = true
-                        }
-
-                        launchSingleTop = true
-                        restoreState = true
-                    }
+                    navigateToTopLevel(
+                        navController = navController,
+                        route = item.route
+                    )
                 },
 
                 icon = {

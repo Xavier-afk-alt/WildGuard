@@ -14,108 +14,226 @@ import com.example.wildguard.viewmodel.InventoryViewModel
 import com.example.wildguard.viewmodel.RewardViewModel
 import kotlinx.coroutines.delay
 
-private const val WATERING_TOOL_ID = 2
+
+private const val WATERING_TOOL_ID =
+    2
+
 
 @Composable
 fun PlantContent(
-    currentPoint: Int,
+
     rewardViewModel: RewardViewModel,
+
     inventoryViewModel: InventoryViewModel,
+
+    sceneQuickUseEnabled: Boolean,
+
     modifier: Modifier = Modifier
+
 ) {
-    var showWateringTool by remember { mutableStateOf(false) }
 
-    val plantImage = when {
-        rewardViewModel.currentPoint >= 7500 ->
-            R.drawable.tree_finalphase
-
-        rewardViewModel.currentPoint >= 5000 ->
-            R.drawable.tree_thirdphase
-
-        rewardViewModel.currentPoint >= 1000 ->
-            R.drawable.tree_secondphase
-
-        rewardViewModel.currentPoint >= 500 ->
-            R.drawable.tree_firstphase
-
-        rewardViewModel.currentPoint >= 250 ->
-            R.drawable.seed_thirdphase
-
-        rewardViewModel.currentPoint >= 50 ->
-            R.drawable.seed_secondphase
-
-        else ->
-            R.drawable.seed_firstphase
+    var showWateringTool by remember {
+        mutableStateOf(false)
     }
 
-    val plantSize = when {
-        rewardViewModel.currentPoint >= 7500 ->
-            270.dp
 
-        rewardViewModel.currentPoint >= 5000 ->
-            230.dp
+    // Permanent plant progress.
+    val growthPoint =
+        rewardViewModel
+            .plantGrowthPoint
 
-        rewardViewModel.currentPoint >= 1000 ->
-            200.dp
 
-        rewardViewModel.currentPoint >= 500 ->
-            170.dp
+    val plantImage =
+        when {
 
-        rewardViewModel.currentPoint >= 250 ->
-            160.dp
+            growthPoint >= 7500 ->
+                R.drawable.tree_finalphase
 
-        rewardViewModel.currentPoint >= 50 ->
-            150.dp
+            growthPoint >= 5000 ->
+                R.drawable.tree_thirdphase
 
-        else ->
-            130.dp
-    }
+            growthPoint >= 1000 ->
+                R.drawable.tree_secondphase
 
-    val plantOffsetY = when {
-        rewardViewModel.currentPoint >= 7500 ->
-            5.dp
+            growthPoint >= 500 ->
+                R.drawable.tree_firstphase
 
-        rewardViewModel.currentPoint >= 5000 ->
-            10.dp
+            growthPoint >= 250 ->
+                R.drawable.seed_thirdphase
 
-        rewardViewModel.currentPoint >= 1000 ->
-            15.dp
+            growthPoint >= 50 ->
+                R.drawable.seed_secondphase
 
-        rewardViewModel.currentPoint >= 500 ->
-            20.dp
+            else ->
+                R.drawable.seed_firstphase
+        }
 
-        rewardViewModel.currentPoint >= 250 ->
-            25.dp
 
-        rewardViewModel.currentPoint >= 50 ->
-            30.dp
+    val plantSize =
+        when {
 
-        else ->
-            35.dp
-    }
+            growthPoint >= 7500 ->
+                270.dp
 
-    LaunchedEffect(showWateringTool) {
+            growthPoint >= 5000 ->
+                230.dp
+
+            growthPoint >= 1000 ->
+                200.dp
+
+            growthPoint >= 500 ->
+                170.dp
+
+            growthPoint >= 250 ->
+                160.dp
+
+            growthPoint >= 50 ->
+                150.dp
+
+            else ->
+                130.dp
+        }
+
+
+    val plantOffsetY =
+        when {
+
+            growthPoint >= 7500 ->
+                5.dp
+
+            growthPoint >= 5000 ->
+                10.dp
+
+            growthPoint >= 1000 ->
+                15.dp
+
+            growthPoint >= 500 ->
+                20.dp
+
+            growthPoint >= 250 ->
+                25.dp
+
+            growthPoint >= 50 ->
+                30.dp
+
+            else ->
+                35.dp
+        }
+
+
+    val reactionSize =
+        when {
+
+            growthPoint >= 5000 ->
+                64.dp
+
+            growthPoint >= 500 ->
+                60.dp
+
+            else ->
+                54.dp
+        }
+
+
+    LaunchedEffect(
+        showWateringTool
+    ) {
+
         if (showWateringTool) {
+
             delay(1200)
-            showWateringTool = false
+
+            showWateringTool =
+                false
         }
     }
 
+
     PlantScene(
-        plantImage = plantImage,
-        plantSize = plantSize,
-        plantOffsetY = plantOffsetY,
-        showWateringTool = showWateringTool,
-        modifier = modifier,
+
+        plantImage =
+            plantImage,
+
+
+        plantSize =
+            plantSize,
+
+
+        plantOffsetY =
+            plantOffsetY,
+
+
+        quickUseEnabled =
+            sceneQuickUseEnabled,
+
+
+        showWateringTool =
+            showWateringTool,
+
+
+        showReaction =
+            rewardViewModel
+                .showReaction,
+
+
+        reactionType =
+            rewardViewModel
+                .currentReaction,
+
+
+        reactionEventId =
+            rewardViewModel
+                .reactionEventId,
+
+
+        reactionSize =
+            reactionSize,
+
+
+        modifier =
+            modifier,
+
+
         onShortPress = {
-            rewardViewModel.showRandomPlantMessage()
+
+            rewardViewModel
+                .showRandomPlantMessage()
         },
+
+
         onLongPress = {
-            if (inventoryViewModel.useItem(WATERING_TOOL_ID)) {
-                showWateringTool = true
-                rewardViewModel.quickWaterPlant()
+
+
+            val consumed =
+                inventoryViewModel
+                    .useItem(
+                        WATERING_TOOL_ID
+                    )
+
+
+            if (consumed) {
+
+
+                showWateringTool =
+                    true
+
+
+                rewardViewModel
+                    .quickWaterPlant()
+
+
+                true
+
             } else {
-                rewardViewModel.showNoToolMessage("watering")
+
+
+                rewardViewModel
+                    .showNoToolMessage(
+                        "watering"
+                    )
+
+
+                false
             }
         }
     )

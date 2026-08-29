@@ -1,11 +1,16 @@
 package com.example.wildguard.components
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -15,6 +20,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backpack
@@ -23,131 +29,215 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.wildguard.components.scene.LongPressQuickUse
 import com.example.wildguard.data.InventoryItem
 import com.example.wildguard.viewmodel.InventoryViewModel
 import com.example.wildguard.viewmodel.RewardType
 
+
 @Composable
 fun InventoryQuickAccess(
+
     inventoryViewModel: InventoryViewModel,
+
     currentRewardType: RewardType,
+
     expanded: Boolean,
+
     onToggle: () -> Unit,
+
     modifier: Modifier = Modifier,
-    onItemClick: (InventoryItem) -> Unit = {}
+
+    onItemClick: (InventoryItem) -> Unit = {},
+
+    onQuickUse: (InventoryItem) -> Unit,
+
+    canQuickUse: (InventoryItem) -> Boolean
+
 ) {
 
-    val inventoryGridState = rememberLazyGridState()
+    val inventoryGridState =
+        rememberLazyGridState()
 
-    Box(
-        modifier = modifier
+
+    BoxWithConstraints(
+
+        modifier =
+            modifier
+
     ) {
 
-        // ==========================================
-        // INVENTORY EXPANDED PANEL
-        // Only display when expanded = true
-        // ==========================================
+
+        val panelWidth =
+
+            if (
+                maxWidth <
+                284.dp
+            ) {
+
+                maxWidth
+
+            } else {
+
+                284.dp
+            }
+
 
         if (expanded) {
 
+
             Card(
+
                 modifier = Modifier
-                    .width(320.dp)
+                    .width(
+                        panelWidth
+                    )
                     .padding(
                         bottom = 56.dp
                     ),
 
-                shape = RoundedCornerShape(20.dp),
+                shape =
+                    RoundedCornerShape(
+                        18.dp
+                    ),
 
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = 8.dp
-                )
+                elevation =
+                    CardDefaults.cardElevation(
+                        defaultElevation = 8.dp
+                    )
+
             ) {
 
+
                 Column(
+
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp)
+                        .padding(
+                            10.dp
+                        )
+
                 ) {
 
-                    // ==========================================
-                    // INVENTORY HEADER
-                    // ==========================================
 
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth(),
+
+                        modifier =
+                            Modifier.fillMaxWidth(),
 
                         verticalAlignment =
                             Alignment.CenterVertically,
 
                         horizontalArrangement =
                             Arrangement.SpaceBetween
+
                     ) {
+
 
                         Text(
-                            text = "Inventory",
-                            fontSize = 20.sp
+
+                            text =
+                                "Inventory",
+
+                            fontSize =
+                                18.sp,
+
+                            fontWeight =
+                                FontWeight.Medium
                         )
-
-                        IconButton(
-                            onClick = onToggle
-                        ) {
-
-                            Icon(
-                                imageVector =
-                                    Icons.Default.Close,
-
-                                contentDescription =
-                                    "Close inventory"
-                            )
-                        }
                     }
 
-                    // ==========================================
-                    // INVENTORY CONTENT
-                    // ==========================================
+
+                    Spacer(
+
+                        modifier =
+                            Modifier.height(
+                                4.dp
+                            )
+                    )
+
+
+                    Text(
+                        text =
+                            "Tap for details • Press & hold compatible items to quick use",
+                        modifier =
+                            Modifier.fillMaxWidth(),
+                        color =
+                            Color(0xFF65705F),
+                        fontSize =
+                            11.sp,
+                        lineHeight =
+                            14.sp,
+                        textAlign =
+                            TextAlign.Start
+                    )
+
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(
+                                6.dp
+                            )
+                    )
+
 
                     if (
-                        inventoryViewModel.items.isEmpty()
+                        inventoryViewModel
+                            .items
+                            .isEmpty()
                     ) {
 
+
                         Box(
+
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(150.dp),
+                                .height(
+                                    130.dp
+                                ),
 
                             contentAlignment =
                                 Alignment.Center
+
                         ) {
 
+
                             Text(
-                                text = "Inventory is empty",
-                                fontSize = 14.sp
+
+                                text =
+                                    "Inventory is empty",
+
+                                fontSize =
+                                    14.sp
                             )
                         }
 
+
                     } else {
 
-                        // ==========================================
-                        // GRID + SCROLL INDICATORS
-                        // ==========================================
 
                         Box(
+
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(230.dp)
+                                .height(
+                                    234.dp
+                                )
+
                         ) {
+
 
                             LazyVerticalGrid(
 
@@ -155,30 +245,36 @@ fun InventoryQuickAccess(
                                     inventoryGridState,
 
                                 columns =
-                                    GridCells.Fixed(3),
+                                    GridCells.Fixed(
+                                        2
+                                    ),
 
                                 modifier =
                                     Modifier.fillMaxWidth(),
 
                                 contentPadding =
                                     PaddingValues(
-                                        start = 4.dp,
-                                        end = 40.dp,
-                                        top = 4.dp,
-                                        bottom = 4.dp
+                                        2.dp
                                     ),
 
                                 horizontalArrangement =
-                                    Arrangement.spacedBy(8.dp),
+                                    Arrangement.spacedBy(
+                                        7.dp
+                                    ),
 
                                 verticalArrangement =
-                                    Arrangement.spacedBy(8.dp)
+                                    Arrangement.spacedBy(
+                                        7.dp
+                                    )
 
                             ) {
 
+
                                 items(
+
                                     items =
-                                        inventoryViewModel.items,
+                                        inventoryViewModel
+                                            .items,
 
                                     key = {
                                         it.rewardId
@@ -186,33 +282,63 @@ fun InventoryQuickAccess(
 
                                 ) { item ->
 
+
                                     val isAvailable =
                                         isItemAvailableForRewardType(
-                                            item = item,
-                                            rewardType = currentRewardType
+
+                                            item =
+                                                item,
+
+                                            rewardType =
+                                                currentRewardType
                                         )
 
-                                    InventoryItemCard(
 
-                                        item = item,
+                                    val canUse =
+                                        canQuickUse(
+                                            item
+                                        )
 
-                                        enabled = isAvailable,
+
+                                    LongPressQuickUse(
+
+                                        enabled =
+                                            true,
+
 
                                         onClick = {
 
-                                            if (isAvailable) {
-                                                onItemClick(item)
-                                            }
+                                            onItemClick(
+                                                item
+                                            )
+                                        },
 
+
+                                        onLongPress = {
+
+                                            if (canUse) {
+
+                                                onQuickUse(
+                                                    item
+                                                )
+                                            }
                                         }
 
-                                    )
+                                    ) {
+
+
+                                        InventoryItemCard(
+
+                                            item =
+                                                item,
+
+                                            isAvailable =
+                                                isAvailable
+                                        )
+                                    }
                                 }
                             }
 
-                            // ==========================================
-                            // UNIFIED VERTICAL ARROWS
-                            // ==========================================
 
                             VerticalScrollIndicators(
 
@@ -228,8 +354,9 @@ fun InventoryQuickAccess(
                                     .align(
                                         Alignment.CenterEnd
                                     )
-                                    .padding(end = 8.dp)
-
+                                    .padding(
+                                        end = 2.dp
+                                    )
                             )
                         }
                     }
@@ -237,133 +364,383 @@ fun InventoryQuickAccess(
             }
         }
 
-        // ==========================================
-        // INVENTORY BUTTON
-        //
-        // IMPORTANT:
-        // This must be OUTSIDE if(expanded)
-        // so it is always visible.
-        // ==========================================
 
         FloatingActionButton(
 
-            onClick = onToggle,
+            onClick =
+                onToggle,
 
             modifier = Modifier
-                .align(Alignment.BottomStart)
-                .size(52.dp)
+                .align(
+                    Alignment.BottomStart
+                )
+                .size(
+                    50.dp
+                )
 
         ) {
+
 
             Icon(
 
                 imageVector =
+
                     if (expanded) {
+
                         Icons.Default.Close
+
                     } else {
+
                         Icons.Default.Backpack
                     },
 
                 contentDescription =
+
                     if (expanded) {
+
                         "Close inventory"
+
                     } else {
+
                         "Open inventory"
                     }
-
             )
         }
     }
 }
 
+
 @Composable
 private fun InventoryItemCard(
+
     item: InventoryItem,
-    enabled: Boolean,
-    onClick: () -> Unit
+
+    isAvailable: Boolean
+
 ) {
+
+
+    val restrictionText =
+
+        when (
+            item.rewardId
+        ) {
+
+            1 ->
+                "ANIMAL ONLY"
+
+            2 ->
+                "PLANT ONLY"
+
+            else ->
+                null
+        }
+
+
+    // ============================================================
+    // LIGHT SPECIAL STATUS COLORS
+    // ============================================================
+
+    val specialBackground =
+        Color(
+            0xFFFFFBF2
+        )
+
+
+    val specialBorder =
+        Color(
+            0xFFF0D49B
+        )
+
+
+    val specialBadgeBackground =
+        Color(
+            0xFFFFEFCB
+        )
+
+
+    val specialBadgeText =
+        Color(
+            0xFF986400
+        )
+
+
+    val specialText =
+        Color(
+            0xFF6E6452
+        )
+
+
+    val specialDot =
+        Color(
+            0xFFE4B65C
+        )
+
 
     Card(
 
-        onClick = onClick,
-
-        enabled = enabled,
-
         modifier = Modifier
             .fillMaxWidth()
-            .height(105.dp),
+            .height(
+                126.dp
+            ),
 
-        shape = RoundedCornerShape(14.dp),
+        shape =
+            RoundedCornerShape(
+                13.dp
+            ),
 
-        colors = CardDefaults.cardColors(
-            containerColor =
-                if (enabled) {
-                    Color.White
-                } else {
-                    Color(0xFFE0E0E0)
-                }
-        ),
 
-        elevation = CardDefaults.cardElevation(
-            defaultElevation =
-                if (enabled) 3.dp else 0.dp
-        )
+        // =====================================================
+        // MUCH LIGHTER STATUS BORDER
+        // =====================================================
+
+        border =
+
+            if (isAvailable) {
+
+                null
+
+            } else {
+
+                BorderStroke(
+
+                    width =
+                        1.5.dp,
+
+                    color =
+                        specialBorder
+                )
+            },
+
+
+        colors =
+            CardDefaults.cardColors(
+
+                containerColor =
+
+                    if (isAvailable) {
+
+                        Color.White
+
+                    } else {
+
+                        specialBackground
+                    }
+            ),
+
+
+        elevation =
+            CardDefaults.cardElevation(
+
+                defaultElevation =
+
+                    if (isAvailable) {
+
+                        3.dp
+
+                    } else {
+
+                        3.dp
+                    }
+            )
 
     ) {
 
+
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
+
+            modifier =
+                Modifier.fillMaxSize()
+
         ) {
+
 
             Column(
 
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(6.dp),
+                    .fillMaxSize()
+                    .padding(
+
+                        start =
+                            7.dp,
+
+                        end =
+                            7.dp,
+
+                        top =
+                            5.dp,
+
+                        bottom =
+                            22.dp
+                    ),
 
                 horizontalAlignment =
                     Alignment.CenterHorizontally
 
             ) {
 
-                Icon(
 
-                    painter =
-                        painterResource(item.image),
+                // =================================================
+                // SAME STATUS AREA FOR BOTH ITEMS
+                // =================================================
 
-                    contentDescription =
-                        item.title,
+                Box(
 
-                    modifier =
-                        Modifier.size(46.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(
+                            20.dp
+                        ),
 
-                    tint =
-                        if (enabled) {
-                            Color.Unspecified
-                        } else {
-                            Color.Gray
+                    contentAlignment =
+                        Alignment.Center
+
+                ) {
+
+
+                    if (
+                        !isAvailable &&
+                        restrictionText != null
+                    ) {
+
+
+                        Box(
+
+                            modifier = Modifier
+                                .clip(
+                                    RoundedCornerShape(
+                                        6.dp
+                                    )
+                                )
+                                .background(
+                                    specialBadgeBackground
+                                )
+                                .padding(
+
+                                    horizontal =
+                                        7.dp,
+
+                                    vertical =
+                                        2.dp
+                                )
+
+                        ) {
+
+
+                            Text(
+
+                                text =
+                                    restrictionText,
+
+                                fontSize =
+                                    8.sp,
+
+                                lineHeight =
+                                    9.sp,
+
+                                fontWeight =
+                                    FontWeight.Bold,
+
+                                color =
+                                    specialBadgeText
+                            )
                         }
+                    }
+                }
 
-                )
+
+                // =================================================
+                // IMAGE
+                // =================================================
+
+                Box(
+
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(
+                            48.dp
+                        ),
+
+                    contentAlignment =
+                        Alignment.Center
+
+                ) {
+
+
+                    Image(
+
+                        painter =
+                            painterResource(
+                                item.image
+                            ),
+
+                        contentDescription =
+                            item.title,
+
+                        modifier = Modifier
+                            .size(
+                                45.dp
+                            )
+                            .alpha(
+
+                                if (isAvailable) {
+
+                                    1f
+
+                                } else {
+
+                                    // Only slightly faded.
+                                    0.78f
+                                }
+                            )
+                    )
+                }
+
+
+                // =================================================
+                // NAME
+                // =================================================
 
                 Text(
 
-                    text = item.title,
+                    text =
+                        item.title,
 
-                    fontSize = 11.sp,
+                    fontSize =
+                        11.sp,
 
-                    maxLines = 1,
+                    lineHeight =
+                        12.5.sp,
+
+                    fontWeight =
+                        FontWeight.Medium,
+
+                    maxLines =
+                        3,
+
+                    textAlign =
+                        TextAlign.Center,
 
                     color =
-                        if (enabled) {
-                            Color.Unspecified
-                        } else {
-                            Color.Gray
-                        }
 
+                        if (isAvailable) {
+
+                            Color(
+                                0xFF222222
+                            )
+
+                        } else {
+
+                            specialText
+                        }
                 )
             }
+
+
+            // =====================================================
+            // QUANTITY
+            // =====================================================
 
             Box(
 
@@ -371,58 +748,116 @@ private fun InventoryItemCard(
                     .align(
                         Alignment.BottomEnd
                     )
-                    .clip(
-                        RoundedCornerShape(8.dp)
+                    .padding(
+                        end = 4.dp,
+                        bottom = 4.dp
                     )
-                    .background(
-                        Color.Black.copy(
-                            if (enabled) 0.75f else 0.4f
+                    .clip(
+                        RoundedCornerShape(
+                            8.dp
                         )
                     )
+                    .background(
+
+                        if (isAvailable) {
+
+                            Color.Black.copy(
+                                alpha = 0.78f
+                            )
+
+                        } else {
+
+                            Color(
+                                0xFF9B8B6D
+                            ).copy(
+                                alpha = 0.72f
+                            )
+                        }
+                    )
                     .padding(
-                        horizontal = 6.dp,
-                        vertical = 2.dp
+
+                        horizontal =
+                            6.dp,
+
+                        vertical =
+                            2.dp
                     )
 
             ) {
 
+
                 Text(
 
-                    text = "×${item.quantity}",
+                    text =
+                        "×${item.quantity}",
 
                     color =
                         Color.White,
 
                     fontSize =
-                        11.sp
+                        10.sp,
 
+                    fontWeight =
+                        FontWeight.Medium
+                )
+            }
+
+
+            // =====================================================
+            // LIGHT STATUS DOT
+            // =====================================================
+
+            if (!isAvailable) {
+
+
+                Box(
+
+                    modifier = Modifier
+                        .align(
+                            Alignment.BottomStart
+                        )
+                        .padding(
+                            start = 5.dp,
+                            bottom = 5.dp
+                        )
+                        .size(
+                            8.dp
+                        )
+                        .clip(
+                            CircleShape
+                        )
+                        .background(
+                            specialDot
+                        )
                 )
             }
         }
     }
 }
 
-@Composable
+
 fun isItemAvailableForRewardType(
+
     item: InventoryItem,
+
     rewardType: RewardType
+
 ): Boolean {
 
-    return when (item.rewardId) {
 
-        // Pat Animal
-        1 -> {
-            rewardType == RewardType.ANIMAL
-        }
+    return when (
+        item.rewardId
+    ) {
 
-        // Water Plant
-        2 -> {
-            rewardType == RewardType.PLANT
-        }
+        1 ->
+            rewardType ==
+                    RewardType.ANIMAL
 
-        // Future/general items
-        else -> {
+        2 ->
+            rewardType ==
+                    RewardType.PLANT
+
+        else ->
             true
-        }
     }
 }

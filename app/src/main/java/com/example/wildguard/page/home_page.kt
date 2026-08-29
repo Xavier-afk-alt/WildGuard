@@ -12,6 +12,8 @@ import com.example.wildguard.components.NewsSection
 import com.example.wildguard.components.QuickAccessSection
 import com.example.wildguard.components.WelcomeSection
 import androidx.navigation.NavController
+import com.example.wildguard.navigation.Page
+import com.example.wildguard.navigation.navigateToTopLevel
 
 @Composable
 fun HomePage(
@@ -35,9 +37,10 @@ fun HomePage(
         WelcomeSection(
 
             onExploreClick = {
-
-                navController.navigate("explore")
-
+                navigateToTopLevel(
+                    navController = navController,
+                    route = Page.Explore.route
+                )
             }
 
         )

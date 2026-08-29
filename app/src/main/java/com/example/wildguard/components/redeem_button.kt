@@ -1,59 +1,133 @@
 package com.example.wildguard.components
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
+
 @Composable
 fun RedeemButton(
 
-    coin:Int,
+    coin: Int,
 
     onClick: () -> Unit
 
-){
+) {
 
-    Button(
 
-        onClick=onClick,
+    Box(
 
-        modifier=Modifier
-            .padding(top=10.dp)
-            .padding(horizontal=70.dp)
-            .fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                top = 3.dp,
+                bottom = 2.dp
+            ),
 
-        shape=RoundedCornerShape(50.dp),
+        contentAlignment =
+            Alignment.Center
 
-        colors=ButtonDefaults.buttonColors(
+    ) {
 
-            containerColor=Color(0xFFD98AF3)
 
-        )
+        Button(
 
-    ){
+            onClick =
+                onClick,
 
-        Text("🪙 $coin")
+            modifier = Modifier
+                // Responsive width
+                .fillMaxWidth(
+                    0.68f
+                )
+                .widthIn(
+                    min = 210.dp,
+                    max = 300.dp
+                )
+                .heightIn(
+                    min = 35.dp
+                ),
 
-        Spacer(modifier=Modifier.width(10.dp))
+            shape =
+                RoundedCornerShape(
+                    50.dp
+                ),
 
-        Text("REDEEM")
+            colors =
+                ButtonDefaults.buttonColors(
 
-        Spacer(modifier=Modifier.width(6.dp))
+                    containerColor =
+                        Color(0xFFD98AF3)
+                ),
 
-        Icon(
+            contentPadding =
+                PaddingValues(
 
-            Icons.Default.ShoppingCart,
+                    horizontal =
+                        16.dp,
 
-            null
+                    vertical =
+                        6.dp
+                )
 
-        )
+        ) {
 
+
+            Text(
+                text =
+                    "🪙 $coin"
+            )
+
+
+            Spacer(
+
+                modifier =
+                    Modifier.width(
+                        10.dp
+                    )
+            )
+
+
+            Text(
+                text =
+                    "REDEEM"
+            )
+
+
+            Spacer(
+
+                modifier =
+                    Modifier.width(
+                        6.dp
+                    )
+            )
+
+
+            Icon(
+
+                imageVector =
+                    Icons.Default.ShoppingCart,
+
+                contentDescription =
+                    "Redeem"
+            )
+        }
     }
-
 }
