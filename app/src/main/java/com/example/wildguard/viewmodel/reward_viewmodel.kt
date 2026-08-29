@@ -589,6 +589,13 @@ class RewardViewModel : ViewModel() {
 
 
         refreshAchievements()
+
+        // Report -> Reward interaction.
+        // The message is queued for the Reward scene and appears
+        // when the user opens the Reward module after submitting.
+        unlockInteraction(
+            "Thanks for protecting me! Your report helped the wildlife."
+        )
     }
 
 

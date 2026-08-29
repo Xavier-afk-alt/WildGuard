@@ -21,7 +21,6 @@ import com.example.wildguard.R
 import com.example.wildguard.page.EmergencyPage
 import com.example.wildguard.page.RedeemShopPage
 import com.example.wildguard.page.ReportPage
-import com.example.wildguard.page.ReportSecondPage
 import com.example.wildguard.page.RewardPage
 import com.example.wildguard.viewmodel.RewardViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -53,7 +52,6 @@ sealed class Page(val route: String) {
 
     object SafetyGuide : Page("safety_guide")
     object Report : Page("report")
-    object ReportDetail : Page("report_detail/{type}")
     object Emergency : Page("emergency")
     object Reward : Page("reward")
     object Redeem : Page("redeem")
@@ -189,17 +187,9 @@ fun AppNavigation(navController: NavHostController) {
         }
 
         composable(Page.Report.route) {
-            ReportPage(navController)
-        }
-
-        composable(
-            Page.ReportDetail.route
-        ) { backStackEntry ->
-
-            val type = backStackEntry.arguments?.getString("type") ?: ""
-
-            ReportSecondPage(
-                navController = navController, reportType = type, rewardViewModel = rewardViewModel
+            ReportPage(
+                navController = navController,
+                rewardViewModel = rewardViewModel
             )
         }
 
