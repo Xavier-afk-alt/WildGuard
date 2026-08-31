@@ -22,14 +22,17 @@ object SupabaseProvider {
     val client: SupabaseClient by lazy {
         check(isConfigured) {
             "Supabase is not configured. Add SUPABASE_URL and " +
-                    "SUPABASE_PUBLISHABLE_KEY to local.properties."
+                    "SUPABASE_PUBLISHABLE_KEY to local.properties or gradle.properties."
         }
 
         createSupabaseClient(
             supabaseUrl = BuildConfig.SUPABASE_URL,
             supabaseKey = BuildConfig.SUPABASE_PUBLISHABLE_KEY
         ) {
-            install(Auth)
+            install(Auth) {
+                scheme = "wildguard"
+                host = "auth"
+            }
             install(Postgrest)
         }
     }

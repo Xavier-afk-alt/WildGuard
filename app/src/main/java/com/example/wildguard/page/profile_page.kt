@@ -10,6 +10,12 @@ import com.example.wildguard.components.ProfileHeader
 import com.example.wildguard.components.ProfileMenuCard
 import com.example.wildguard.components.UserInfoCard
 import com.example.wildguard.data.profileMenus
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Text
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
 /*
 ==recommendation for profile each submodule part==
@@ -23,7 +29,8 @@ Help & Support: Provide FAQs, emergency contact information, feedback submission
 @Composable
 fun ProfilePage(
 
-    navController: NavController
+    navController: NavController,
+    onSignOut: () -> Unit = {}
 
 ){
 
@@ -53,6 +60,17 @@ fun ProfilePage(
 
             }
 
+        }
+
+        Button(
+            onClick = onSignOut,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F7A4D))
+        ) {
+            Text("Log Out")
         }
 
     }

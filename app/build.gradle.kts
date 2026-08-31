@@ -1,5 +1,11 @@
 import java.util.Properties
 
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
+}
+
 val localProperties = Properties().apply {
 
     val localPropertiesFile = rootProject.file("local.properties")
@@ -13,17 +19,14 @@ val localProperties = Properties().apply {
 }
 
 
-fun localProperty(
-    name: String
-): String = localProperties.getProperty(
-    name, ""
-)
+val supabaseUrl =
+    localProperties.getProperty("SUPABASE_URL")
+        ?: providers.gradleProperty("SUPABASE_URL").orElse("").get()
 
-plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kotlin.serialization)
-}
+val supabasePublishableKey =
+    localProperties.getProperty("SUPABASE_PUBLISHABLE_KEY")
+        ?: providers.gradleProperty("SUPABASE_PUBLISHABLE_KEY").orElse("").get()
+
 
 android {
     namespace = "com.example.wildguard"
@@ -42,11 +45,11 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField(
-            "String", "SUPABASE_URL", "\"${localProperty("SUPABASE_URL")}\""
+            "String", "SUPABASE_URL", "\"$supabaseUrl\""
         )
 
         buildConfigField(
-            "String", "SUPABASE_PUBLISHABLE_KEY", "\"${localProperty("SUPABASE_PUBLISHABLE_KEY")}\""
+            "String", "SUPABASE_PUBLISHABLE_KEY", "\"$supabasePublishableKey\""
         )
     }
 

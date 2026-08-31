@@ -41,6 +41,13 @@ import com.example.wildguard.viewmodel.InventoryViewModel
 import com.example.wildguard.components.AppLoadingScreen
 import com.example.wildguard.viewmodel.AppStateViewModel
 import kotlinx.coroutines.delay
+import com.example.wildguard.auth.AuthStatus
+import com.example.wildguard.auth.AuthViewModel
+import com.example.wildguard.page.auth.LoginScreen
+import com.example.wildguard.page.auth.SignUpScreen
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 
 //create navigation route
 sealed class Page(val route: String) {
@@ -152,7 +159,10 @@ fun BottomBar(navController: NavHostController) {
 
 //setup nav
 @Composable
-fun AppNavigation(navController: NavHostController) {
+fun AppNavigation(
+    navController: NavHostController,
+    authViewModel: AuthViewModel
+) {
 
     val rewardViewModel: RewardViewModel = viewModel()
     val inventoryViewModel: InventoryViewModel = viewModel()
@@ -216,7 +226,13 @@ fun AppNavigation(navController: NavHostController) {
         }
 
         composable(Page.Profile.route) {
-            ProfilePage(navController)
+            ProfilePage(
+                navController = navController,
+                onSignOut = {
+                    navigateToTopLevel(navController, Page.Home.route)
+                    authViewModel.signOut()
+                }
+            )
         }
 
         composable(Page.Activities.route) {
@@ -269,6 +285,15 @@ fun MainPage() {
     val navController =
         rememberNavController()
 
+    val authViewModel: AuthViewModel = viewModel()
+    var showSignUp by remember { mutableStateOf(false) }
+
+    LaunchedEffect(authViewModel.status) {
+        if (authViewModel.status == AuthStatus.Authenticated) {
+            showSignUp = false
+        }
+    }
+
     // ==========================================
     // APP STARTUP LOADING
     // ==========================================
@@ -284,9 +309,23 @@ fun MainPage() {
     // LOADING SCREEN
     // ==========================================
 
-    if (appStateViewModel.isLoading) {
+    if (appStateViewModel.isLoading || authViewModel.status == AuthStatus.Checking) {
 
         AppLoadingScreen()
+
+    } else if (authViewModel.status != AuthStatus.Authenticated) {
+
+        if (showSignUp) {
+            SignUpScreen(
+                authViewModel = authViewModel,
+                onBackToLogin = { showSignUp = false }
+            )
+        } else {
+            LoginScreen(
+                authViewModel = authViewModel,
+                onOpenSignUp = { showSignUp = true }
+            )
+        }
 
     } else {
 
@@ -306,7 +345,10 @@ fun MainPage() {
                 modifier = Modifier.padding(padding)
             ) {
 
-                AppNavigation(navController)
+                AppNavigation(
+                    navController = navController,
+                    authViewModel = authViewModel
+                )
 
             }
         }

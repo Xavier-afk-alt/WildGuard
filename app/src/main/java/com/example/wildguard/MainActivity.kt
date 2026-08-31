@@ -1,6 +1,7 @@
 package com.example.wildguard
 
 import android.os.Bundle
+import android.content.Intent
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -11,12 +12,17 @@ import com.example.wildguard.data.remote.SupabaseProvider
 import com.example.wildguard.data.remote.SupabaseSession
 import com.example.wildguard.navigation.MainPage
 import kotlinx.coroutines.launch
+import io.github.jan.supabase.auth.handleDeeplinks
 
 
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (SupabaseProvider.isConfigured) {
+            SupabaseProvider.client.handleDeeplinks(intent)
+        }
 
         enableEdgeToEdge()
 
@@ -89,6 +95,15 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MainPage()
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+
+        if (SupabaseProvider.isConfigured) {
+            SupabaseProvider.client.handleDeeplinks(intent)
         }
     }
 }
