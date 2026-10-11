@@ -26,6 +26,8 @@ data class RewardItem(
 
     val purchaseMode: PurchaseMode = PurchaseMode.SINGLE,
 
-    val purchased:Boolean=false
+    val purchased:Boolean=false,
+
+    val buttonStatus: String = "PURCHASE"
 
 )

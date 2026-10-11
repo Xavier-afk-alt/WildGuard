@@ -3,15 +3,23 @@ package com.example.wildguard.data.remote
 import org.osmdroid.tileprovider.tilesource.XYTileSource
 
 val WildGuardTileSource = XYTileSource(
-    "CartoLight",
+    "WildGuardOpenStreetMap",
     0,
-    20,
+    19,
     256,
     ".png",
-    arrayOf(
-        "https://a.basemaps.cartocdn.com/light_all/",
-        "https://b.basemaps.cartocdn.com/light_all/",
-        "https://c.basemaps.cartocdn.com/light_all/"
-    ),
-    "© OpenStreetMap contributors © CARTO"
+    arrayOf("https://tile.openstreetmap.org/"),
+    "© OpenStreetMap contributors"
+)
+
+// A separate cache namespace prevents old/corrupted Admin map tiles from
+// being reused while keeping the same OpenStreetMap service as the User map.
+val WildGuardAdminTileSource = XYTileSource(
+    "WildGuardAdminOpenStreetMapV2",
+    0,
+    19,
+    256,
+    ".png",
+    arrayOf("https://tile.openstreetmap.org/"),
+    "© OpenStreetMap contributors"
 )

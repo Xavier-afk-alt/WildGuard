@@ -12,7 +12,7 @@ val rewardItems = mutableListOf(
 
         title="Pat Pat Hand",
 
-        description="+5 animal affinity",
+        description="Have fun when interacting with animals!",
 
         price=25,
 
@@ -32,7 +32,7 @@ val rewardItems = mutableListOf(
 
         title="Watering Tool",
 
-        description="+5 plant growth",
+        description="Have fun when interacting with plants!",
 
         price=25,
 
@@ -79,126 +79,6 @@ val rewardItems = mutableListOf(
         image=R.drawable.foodpanda_voucher,
 
         stock=0,
-
-        purchaseMode = PurchaseMode.SINGLE
-
-    ),
-
-    RewardItem(
-
-        id=5,
-
-        type = "",
-
-        title="test",
-
-        description="",
-
-        price=0,
-
-        image=R.drawable.low_stock,
-
-        stock=-1,
-
-        purchaseMode = PurchaseMode.SINGLE
-
-    ),
-
-    RewardItem(
-
-        id=6,
-
-        type = "",
-
-        title="test",
-
-        description="",
-
-        price=0,
-
-        image=R.drawable.low_stock,
-
-        stock=-1,
-
-        purchaseMode = PurchaseMode.SINGLE
-
-    ),
-
-    RewardItem(
-
-        id=7,
-
-        type = "",
-
-        title="test",
-
-        description="",
-
-        price=0,
-
-        image=R.drawable.low_stock,
-
-        stock=-1,
-
-        purchaseMode = PurchaseMode.SINGLE
-
-    ),
-
-    RewardItem(
-
-        id=8,
-
-        type = "",
-
-        title="test",
-
-        description="",
-
-        price=0,
-
-        image=R.drawable.low_stock,
-
-        stock=-1,
-
-        purchaseMode = PurchaseMode.SINGLE
-
-    ),
-
-    RewardItem(
-
-        id=9,
-
-        type = "",
-
-        title="test",
-
-        description="",
-
-        price=0,
-
-        image=R.drawable.low_stock,
-
-        stock=-1,
-
-        purchaseMode = PurchaseMode.SINGLE
-
-    ),
-
-    RewardItem(
-
-        id=10,
-
-        type = "",
-
-        title="test",
-
-        description="",
-
-        price=0,
-
-        image=R.drawable.low_stock,
-
-        stock=-1,
 
         purchaseMode = PurchaseMode.SINGLE
 

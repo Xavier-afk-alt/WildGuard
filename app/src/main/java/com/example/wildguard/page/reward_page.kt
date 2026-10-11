@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
@@ -30,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.wildguard.notification.WildGuardNotifications
 import com.example.wildguard.R
 import com.example.wildguard.components.AchievementBanner
 import com.example.wildguard.components.AnimalContent
@@ -39,8 +41,8 @@ import com.example.wildguard.components.InventoryQuickAccess
 import com.example.wildguard.components.PlantContent
 import com.example.wildguard.components.PointEarningPopup
 import com.example.wildguard.components.RedeemButton
-import com.example.wildguard.components.RewardHeader
 import com.example.wildguard.components.RewardToggleButton
+import com.example.wildguard.components.RewardHeader
 import com.example.wildguard.data.InventoryItem
 import com.example.wildguard.data.animalList
 import com.example.wildguard.viewmodel.InventoryViewModel
@@ -48,6 +50,7 @@ import com.example.wildguard.viewmodel.RewardType
 import com.example.wildguard.viewmodel.RewardViewModel
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
+import com.example.wildguard.localization.AppLanguage
 
 
 private fun canQuickUseItem(
@@ -79,6 +82,43 @@ fun RewardPage(
     inventoryViewModel: InventoryViewModel
 
 ) {
+
+    val notificationContext = LocalContext.current
+
+    // Reward reminders follow the page the user is actually viewing.
+    // Each reminder is limited to once per day per reward type to avoid notification spam.
+    LaunchedEffect(rewardViewModel.rewardType, rewardViewModel.selectedAnimal) {
+        val prefs = notificationContext.getSharedPreferences(
+            "wildguard_notifications",
+            android.content.Context.MODE_PRIVATE
+        )
+        val today = java.text.SimpleDateFormat(
+            "yyyy-MM-dd",
+            java.util.Locale.getDefault()
+        ).format(java.util.Date())
+
+        when (rewardViewModel.rewardType) {
+            RewardType.ANIMAL -> {
+                val key = "last_animal_reward_reminder_${rewardViewModel.selectedAnimal.name}"
+                if (prefs.getString(key, null) != today) {
+                    WildGuardNotifications.animalInteraction(
+                        notificationContext,
+                        rewardViewModel.selectedAnimal.name.lowercase()
+                            .replaceFirstChar { it.uppercase() }
+                    )
+                    prefs.edit().putString(key, today).apply()
+                }
+            }
+
+            RewardType.PLANT -> {
+                val key = "last_plant_reward_reminder"
+                if (prefs.getString(key, null) != today) {
+                    WildGuardNotifications.plantNeedsWater(notificationContext)
+                    prefs.edit().putString(key, today).apply()
+                }
+            }
+        }
+    }
 
     // ============================================================
     // POINT EVENT
@@ -240,10 +280,10 @@ fun RewardPage(
         ) {
 
             RewardType.ANIMAL ->
-                "Pat Pat Hand"
+                AppLanguage.text("Pat Pat Hand", "拍拍手")
 
             RewardType.PLANT ->
-                "Watering Tool"
+                AppLanguage.text("Watering Tool", "浇水工具")
         }
 
 
@@ -857,7 +897,6 @@ fun RewardPage(
 
             RewardHeader()
 
-
             // ====================================================
             // ACHIEVEMENT
             // ====================================================
@@ -1073,7 +1112,7 @@ fun RewardPage(
                             Text(
 
                                 text =
-                                    "Hold scene: $sceneGestureToolName",
+                                    AppLanguage.text("Hold scene: $sceneGestureToolName", "长按场景：$sceneGestureToolName"),
 
                                 color =
                                     Color(
@@ -1113,7 +1152,7 @@ fun RewardPage(
                             Text(
 
                                 text =
-                                    "Release to stop",
+                                    AppLanguage.text("Release to stop", "松开即可停止"),
 
                                 color =
                                     Color(
@@ -1195,7 +1234,7 @@ fun RewardPage(
                         Text(
 
                             text =
-                                "☝ Hold scene",
+                                AppLanguage.text("☝ Hold scene", "☝ 长按场景"),
 
                             modifier =
                                 Modifier.padding(
@@ -1451,7 +1490,6 @@ fun RewardPage(
         // ========================================================
         // ANIMAL / PLANT TOGGLE
         // ========================================================
-
         RewardToggleButton(
 
             modifier = Modifier
@@ -1468,8 +1506,7 @@ fun RewardPage(
 
         ) {
 
-            rewardViewModel
-                .switchRewardType()
+            rewardViewModel.switchRewardType()
         }
 
 

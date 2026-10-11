@@ -21,6 +21,13 @@ enum class Severity {
     CRITICAL
 }
 
+enum class ReportStatus {
+    OPEN,
+    REVIEWING,
+    RESOLVED,
+    REJECTED
+}
+
 data class IncidentReport(
     val reportId: String = "",
     val userId: String = "",
@@ -35,5 +42,6 @@ data class IncidentReport(
     val imageUris: List<String> = emptyList(),
     val severity: Severity = Severity.MEDIUM,
     val weather: String = "Cloudy",
+    val status: ReportStatus = ReportStatus.OPEN,
     val timestamp: Long = System.currentTimeMillis()
 )

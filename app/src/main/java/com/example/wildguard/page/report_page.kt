@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -45,6 +46,7 @@ import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -74,14 +76,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -89,16 +94,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.example.wildguard.R
 import com.example.wildguard.data.remote.SupabaseSession
+import com.example.wildguard.data.remote.WildGuardTileSource
 import com.example.wildguard.data.report.IncidentReport
 import com.example.wildguard.data.report.IncidentType
 import com.example.wildguard.data.report.Severity
 import com.example.wildguard.navigation.Page
 import com.example.wildguard.navigation.navigateToTopLevel
 import com.example.wildguard.viewmodel.ReportViewModel
+import com.example.wildguard.localization.AppLanguage
 import com.example.wildguard.viewmodel.RewardViewModel
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
@@ -112,7 +125,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapEventsReceiver
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
@@ -120,13 +132,127 @@ import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import java.io.File
 import java.io.FileOutputStream
-import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
 private val ReportGreen = Color(0xFF2E7D32)
 private val ReportBackground = Color(0xFFF1F8F1)
+
+private fun reportText(english: String, chinese: String, malay: String): String =
+    AppLanguage.text(english, chinese, malay)
+
+private fun localizedIncidentType(type: IncidentType): String = when (type) {
+    IncidentType.INJURED_ANIMAL -> reportText("Injured Animal", "受伤动物", "Haiwan Cedera")
+    IncidentType.ILLEGAL_HUNTING -> reportText("Illegal Hunting", "非法狩猎", "Pemburuan Haram")
+    IncidentType.HABITAT_DAMAGE -> reportText("Habitat Damage", "栖息地破坏", "Kerosakan Habitat")
+    IncidentType.ANIMAL_TRAP -> reportText("Animal Trap", "动物陷阱", "Perangkap Haiwan")
+    IncidentType.DEAD_ANIMAL -> reportText("Dead Animal", "死亡动物", "Haiwan Mati")
+    IncidentType.OTHER -> reportText("Other", "其他", "Lain-lain")
+}
+
+private fun localizedWeather(weather: String): String = when (weather) {
+    "Clear" -> reportText("Clear", "晴朗", "Cerah")
+    "Rainy" -> reportText("Rainy", "下雨", "Hujan")
+    "Stormy" -> reportText("Stormy", "暴风雨", "Ribut")
+    else -> reportText("Cloudy", "多云", "Mendung")
+}
+
+/** Persistent draft for the period in which an external camera app is open. */
+private object ReportDraftStore {
+    private const val PREFS = "incident_report_draft"
+    private const val STEP_TWO = "step_two"
+    private const val TYPE = "incident_type"
+    private const val IMAGES = "image_uris"
+    private const val PENDING_CAMERA_URI = "pending_camera_uri"
+    private const val SPECIES = "species"
+    private const val COUNT = "count"
+    private const val AGGRESSIVE = "aggressive"
+    private const val DESCRIPTION = "description"
+    private const val SEVERITY = "severity"
+    private const val WEATHER = "weather"
+    private const val DATE_TIME = "date_time"
+    private const val LOCATION_NAME = "location_name"
+    private const val LATITUDE = "latitude"
+    private const val LONGITUDE = "longitude"
+
+    private fun prefs(context: Context) =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    fun isStepTwo(context: Context) = prefs(context).getBoolean(STEP_TWO, false)
+    fun setStepTwo(context: Context, value: Boolean) =
+        prefs(context).edit().putBoolean(STEP_TWO, value).apply()
+
+    fun type(context: Context): IncidentType? = prefs(context).getString(TYPE, null)
+        ?.let { saved -> IncidentType.entries.firstOrNull { it.name == saved } }
+
+    fun setType(context: Context, type: IncidentType?) {
+        val editor = prefs(context).edit()
+        if (type == null) editor.remove(TYPE) else editor.putString(TYPE, type.name)
+        editor.apply()
+    }
+
+    fun images(context: Context): List<String> =
+        prefs(context).getStringSet(IMAGES, emptySet()).orEmpty().toList()
+
+    fun setImages(context: Context, images: List<String>) =
+        prefs(context).edit().putStringSet(IMAGES, images.toSet()).apply()
+
+    fun species(context: Context) = prefs(context).getString(SPECIES, "").orEmpty()
+    fun count(context: Context) = prefs(context).getString(COUNT, "1").orEmpty()
+    fun aggressive(context: Context) = prefs(context).getBoolean(AGGRESSIVE, false)
+    fun description(context: Context) = prefs(context).getString(DESCRIPTION, "").orEmpty()
+    fun severity(context: Context) = prefs(context).getString(SEVERITY, Severity.MEDIUM.name)
+        ?.let { runCatching { Severity.valueOf(it) }.getOrDefault(Severity.MEDIUM) }
+        ?: Severity.MEDIUM
+    fun weather(context: Context) = prefs(context).getString(WEATHER, "Cloudy").orEmpty()
+    fun dateTime(context: Context) = prefs(context).getLong(DATE_TIME, System.currentTimeMillis())
+    fun locationName(context: Context) = prefs(context).getString(LOCATION_NAME, "Choose Location").orEmpty()
+    fun latitude(context: Context): Double? = prefs(context).takeIf { it.contains(LATITUDE) }
+        ?.getLong(LATITUDE, 0L)?.let { Double.fromBits(it) }
+    fun longitude(context: Context): Double? = prefs(context).takeIf { it.contains(LONGITUDE) }
+        ?.getLong(LONGITUDE, 0L)?.let { Double.fromBits(it) }
+
+    fun saveForm(
+        context: Context,
+        species: String,
+        count: String,
+        aggressive: Boolean,
+        description: String,
+        severity: Severity,
+        weather: String,
+        dateTime: Long,
+        locationName: String,
+        location: Pair<Double, Double>?
+    ) {
+        val editor = prefs(context).edit()
+            .putString(SPECIES, species)
+            .putString(COUNT, count)
+            .putBoolean(AGGRESSIVE, aggressive)
+            .putString(DESCRIPTION, description)
+            .putString(SEVERITY, severity.name)
+            .putString(WEATHER, weather)
+            .putLong(DATE_TIME, dateTime)
+            .putString(LOCATION_NAME, locationName)
+        if (location == null) editor.remove(LATITUDE).remove(LONGITUDE)
+        else editor.putLong(LATITUDE, location.first.toBits())
+            .putLong(LONGITUDE, location.second.toBits())
+        // commit is intentional: the external camera can stop this process immediately.
+        editor.commit()
+    }
+
+    fun pendingCameraUri(context: Context): String? =
+        prefs(context).getString(PENDING_CAMERA_URI, null)
+
+    fun setPendingCameraUri(context: Context, uri: String?) {
+        val editor = prefs(context).edit()
+        if (uri == null) editor.remove(PENDING_CAMERA_URI)
+        else editor.putString(PENDING_CAMERA_URI, uri)
+        editor.apply()
+    }
+
+    fun clear(context: Context) = prefs(context).edit().clear().apply()
+}
 
 private data class IncidentTypeUi(
     val type: IncidentType,
@@ -140,14 +266,24 @@ fun ReportPage(
     rewardViewModel: RewardViewModel,
     reportViewModel: ReportViewModel = viewModel()
 ) {
-    var showDetailForm by remember { mutableStateOf(false) }
-    var showMapPicker by remember { mutableStateOf(false) }
-    var selectedType by remember { mutableStateOf<IncidentType?>(null) }
-    var locationName by remember { mutableStateOf("Choose Location") }
-    var selectedLocation by remember { mutableStateOf<Pair<Double, Double>?>(null) }
-    var successReportId by remember { mutableStateOf<String?>(null) }
-
     val context = LocalContext.current
+    var showDetailForm by rememberSaveable {
+        mutableStateOf(ReportDraftStore.isStepTwo(context))
+    }
+    var showMapPicker by rememberSaveable { mutableStateOf(false) }
+    var selectedType by rememberSaveable {
+        mutableStateOf(ReportDraftStore.type(context))
+    }
+    var locationName by rememberSaveable { mutableStateOf(ReportDraftStore.locationName(context)) }
+    var selectedLatitude by rememberSaveable { mutableStateOf(ReportDraftStore.latitude(context)) }
+    var selectedLongitude by rememberSaveable { mutableStateOf(ReportDraftStore.longitude(context)) }
+    val selectedLocation = if (selectedLatitude != null && selectedLongitude != null) {
+        selectedLatitude!! to selectedLongitude!!
+    } else {
+        null
+    }
+    var successReportId by rememberSaveable { mutableStateOf<String?>(null) }
+
     val fusedLocationClient = remember(context) {
         LocationServices.getFusedLocationProviderClient(context)
     }
@@ -157,7 +293,9 @@ fun ReportPage(
         showMapPicker = false
         selectedType = null
         locationName = "Choose Location"
-        selectedLocation = null
+        selectedLatitude = null
+        selectedLongitude = null
+        ReportDraftStore.clear(context)
         reportViewModel.clearError()
     }
 
@@ -168,17 +306,21 @@ fun ReportPage(
                 initialType = selectedType ?: IncidentType.OTHER,
                 initialLocation = selectedLocation,
                 initialLocationName = locationName,
-                onBack = { showDetailForm = false },
+                onBack = {
+                    showDetailForm = false
+                    ReportDraftStore.setStepTwo(context, false)
+                },
                 onEditLocation = { showMapPicker = true },
                 errorMessage = reportViewModel.errorMessage,
+                isSubmitting = reportViewModel.isSubmitting,
                 onClearError = reportViewModel::clearError,
                 onSubmit = { report ->
                     val reportWithUser = report.copy(
                         userId = SupabaseSession.currentUserIdOrNull().orEmpty()
                     )
-                    if (reportViewModel.submitReport(reportWithUser)) {
+                    reportViewModel.submitReport(reportWithUser, context) { savedReport ->
                         rewardViewModel.recordReportSubmitted()
-                        successReportId = reportViewModel.lastSubmittedReport?.reportId
+                        successReportId = savedReport.reportId
                     }
                 }
             )
@@ -186,13 +328,19 @@ fun ReportPage(
             IncidentSelectionScreen(
                 modifier = Modifier.fillMaxSize(),
                 selectedType = selectedType,
-                onTypeSelected = { selectedType = it },
+                onTypeSelected = {
+                    selectedType = it
+                    ReportDraftStore.setType(context, it)
+                },
                 locationName = locationName,
+                locationCoordinates = selectedLocation,
                 onLocationClick = { showMapPicker = true },
                 onContinue = {
                     if (selectedType != null) {
                         reportViewModel.clearError()
                         showDetailForm = true
+                        ReportDraftStore.setType(context, selectedType)
+                        ReportDraftStore.setStepTwo(context, true)
                     } else {
                         Toast.makeText(
                             context,
@@ -212,7 +360,8 @@ fun ReportPage(
                 initialLocation = selectedLocation,
                 initialLocationName = locationName,
                 onLocationPicked = { lat, lon, name ->
-                    selectedLocation = lat to lon
+                    selectedLatitude = lat
+                    selectedLongitude = lon
                     locationName = name.ifBlank {
                         "Map: ${String.format(Locale.getDefault(), "%.4f", lat)}, " +
                             String.format(Locale.getDefault(), "%.4f", lon)
@@ -228,7 +377,7 @@ fun ReportPage(
     successReportId?.let { reportId ->
         AlertDialog(
             onDismissRequest = {},
-            title = { Text("Report Submitted") },
+            title = { Text(AppLanguage.text("Report Submitted", "报告已提交")) },
             text = {
                 Text(
                     "Report $reportId was submitted successfully. " +
@@ -248,7 +397,7 @@ fun ReportPage(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = ReportGreen)
                 ) {
-                    Text("View Reward")
+                        Text(AppLanguage.text("View Reward", "查看奖励"))
                 }
             },
             dismissButton = {
@@ -258,7 +407,7 @@ fun ReportPage(
                         resetForm()
                     }
                 ) {
-                    Text("Done")
+                        Text(AppLanguage.text("Done", "完成"))
                 }
             }
         )
@@ -271,20 +420,19 @@ private fun IncidentSelectionScreen(
     selectedType: IncidentType?,
     onTypeSelected: (IncidentType) -> Unit,
     locationName: String,
+    locationCoordinates: Pair<Double, Double>?,
     onLocationClick: () -> Unit,
     onContinue: () -> Unit,
     onSosClick: () -> Unit
 ) {
-    val types = remember {
-        listOf(
-            IncidentTypeUi(IncidentType.INJURED_ANIMAL, "🐘", "Injured Animal"),
-            IncidentTypeUi(IncidentType.ILLEGAL_HUNTING, "🚫", "Illegal Hunting"),
-            IncidentTypeUi(IncidentType.HABITAT_DAMAGE, "🌳", "Habitat Damage"),
-            IncidentTypeUi(IncidentType.ANIMAL_TRAP, "📦", "Animal Trap"),
-            IncidentTypeUi(IncidentType.DEAD_ANIMAL, "💀", "Dead Animal"),
-            IncidentTypeUi(IncidentType.OTHER, "❓", "Other")
-        )
-    }
+    val types = listOf(
+        IncidentTypeUi(IncidentType.INJURED_ANIMAL, "🐘", reportText("Injured Animal", "受伤动物", "Haiwan Cedera")),
+        IncidentTypeUi(IncidentType.ILLEGAL_HUNTING, "🚫", reportText("Illegal Hunting", "非法狩猎", "Pemburuan Haram")),
+        IncidentTypeUi(IncidentType.HABITAT_DAMAGE, "🌳", reportText("Habitat Damage", "栖息地破坏", "Kerosakan Habitat")),
+        IncidentTypeUi(IncidentType.ANIMAL_TRAP, "📦", reportText("Animal Trap", "动物陷阱", "Perangkap Haiwan")),
+        IncidentTypeUi(IncidentType.DEAD_ANIMAL, "💀", reportText("Dead Animal", "死亡动物", "Haiwan Mati")),
+        IncidentTypeUi(IncidentType.OTHER, "❓", reportText("Other", "其他", "Lain-lain"))
+    )
 
     Column(
         modifier = modifier
@@ -300,13 +448,13 @@ private fun IncidentSelectionScreen(
         ) {
             Column {
                 Text(
-                    "Report Wildlife Incident",
+                    reportText("Report Wildlife Incident", "举报野生动物事件", "Laporkan Insiden Hidupan Liar"),
                     color = Color.White,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "Step 1: choose incident type",
+                    reportText("Step 1: choose incident type", "步骤 1：选择事件类型", "Langkah 1: pilih jenis insiden"),
                     color = Color.White.copy(alpha = 0.8f),
                     fontSize = 14.sp
                 )
@@ -340,7 +488,7 @@ private fun IncidentSelectionScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    "Choose Incident Type",
+                    reportText("Choose Incident Type", "选择事件类型", "Pilih Jenis Insiden"),
                     modifier = Modifier.fillMaxWidth(),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
@@ -384,7 +532,9 @@ private fun IncidentSelectionScreen(
                         )
                         Spacer(Modifier.width(10.dp))
                         Text(
-                            locationName,
+                            locationCoordinates?.let { (latitude, longitude) ->
+                                String.format(Locale.US, "%.6f, %.6f", latitude, longitude)
+                            } ?: reportText("Choose Location", "选择地点", "Pilih Lokasi"),
                             color = Color.Black,
                             maxLines = 1
                         )
@@ -401,7 +551,7 @@ private fun IncidentSelectionScreen(
                     shape = RoundedCornerShape(27.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = ReportGreen)
                 ) {
-                    Text("Continue", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text(reportText("Continue", "继续", "Teruskan"), fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -473,16 +623,42 @@ private fun MapLocationPicker(
     var markerName by remember(initialLocationName) {
         mutableStateOf(if (initialLocation != null) initialLocationName else "")
     }
-    var mapViewRef by remember { mutableStateOf<MapView?>(null) }
+    val mapView = remember(context) {
+        Configuration.getInstance().apply {
+            load(context, context.getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
+            userAgentValue = "WildGuard/1.0 (${context.packageName})"
+        }
+        MapView(context).apply {
+            setTileSource(WildGuardTileSource)
+            setUseDataConnection(true)
+            setMultiTouchControls(true)
+            zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+            controller.setZoom(15.0)
+            controller.setCenter(initialPos)
+        }
+    }
     var searchQuery by remember { mutableStateOf("") }
+    var isLocating by remember { mutableStateOf(initialLocation == null) }
+    var automaticLocationRequest by remember { mutableStateOf(true) }
+    var automaticCenter by remember { mutableStateOf<GeoPoint?>(null) }
 
     fun placeMarker(point: GeoPoint, title: String) {
         markerPos = point
         markerName = title
-        mapViewRef?.let { map ->
-            updateMapMarker(map, point, title)
-            map.controller.animateTo(point)
-            map.controller.setZoom(17.0)
+        updateMapMarker(mapView, point, title)
+        mapView.controller.animateTo(point)
+        mapView.controller.setZoom(17.0)
+    }
+
+    fun handleCurrentLocation(lat: Double, lon: Double) {
+        val point = GeoPoint(lat, lon)
+        if (automaticLocationRequest) {
+            automaticCenter = point
+            mapView.controller.setZoom(16.0)
+            mapView.controller.setCenter(point)
+            mapView.invalidate()
+        } else {
+            placeMarker(point, "Current location")
         }
     }
 
@@ -496,14 +672,11 @@ private fun MapLocationPicker(
             fetchCurrentLocation(
                 fusedLocationClient = fusedLocationClient,
                 context = context,
-                onLocationFound = { lat, lon ->
-                    placeMarker(
-                        GeoPoint(lat, lon),
-                        "Current location"
-                    )
-                }
+                onLocationFound = ::handleCurrentLocation,
+                onUnavailable = { isLocating = false }
             )
         } else {
+            isLocating = false
             Toast.makeText(
                 context,
                 "Location permission is needed to use your current location.",
@@ -513,6 +686,7 @@ private fun MapLocationPicker(
     }
 
     fun requestCurrentLocation() {
+        automaticLocationRequest = false
         val hasFine = ActivityCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_FINE_LOCATION
@@ -526,9 +700,8 @@ private fun MapLocationPicker(
             fetchCurrentLocation(
                 fusedLocationClient = fusedLocationClient,
                 context = context,
-                onLocationFound = { lat, lon ->
-                    placeMarker(GeoPoint(lat, lon), "Current location")
-                }
+                onLocationFound = ::handleCurrentLocation,
+                onUnavailable = { isLocating = false }
             )
         } else {
             permissionLauncher.launch(
@@ -540,12 +713,49 @@ private fun MapLocationPicker(
         }
     }
 
-    DisposableEffect(mapViewRef) {
-        val mapView = mapViewRef
-        mapView?.onResume()
+    LaunchedEffect(Unit) {
+        if (initialLocation != null) {
+            isLocating = false
+            return@LaunchedEffect
+        }
+        automaticLocationRequest = true
+        val hasFine = ActivityCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasCoarse = ActivityCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasFine || hasCoarse) {
+            fetchCurrentLocation(
+                fusedLocationClient = fusedLocationClient,
+                context = context,
+                onLocationFound = ::handleCurrentLocation,
+                onUnavailable = { isLocating = false }
+            )
+        } else {
+            permissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+        kotlinx.coroutines.delay(8_000)
+        isLocating = false
+    }
+
+    LaunchedEffect(automaticCenter) {
+        if (automaticCenter != null) {
+            kotlinx.coroutines.delay(800)
+            isLocating = false
+        }
+    }
+
+    DisposableEffect(mapView) {
+        mapView.onResume()
         onDispose {
-            mapView?.onPause()
-            mapView?.onDetach()
+            mapView.onPause()
+            mapView.onDetach()
         }
     }
 
@@ -555,38 +765,28 @@ private fun MapLocationPicker(
             .background(Color.White)
     ) {
         AndroidView(
-            factory = { ctx ->
-                Configuration.getInstance().apply {
-                    load(ctx, ctx.getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
-                    userAgentValue = ctx.packageName
-                }
-                MapView(ctx).apply {
-                    setTileSource(TileSourceFactory.MAPNIK)
-                    setUseDataConnection(true)
-                    setMultiTouchControls(true)
-                    zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
-                    controller.setZoom(15.0)
-                    controller.setCenter(initialPos)
-                    onResume()
+            factory = {
+                mapView.apply {
+                    if (overlays.none { it is MapEventsOverlay }) {
+                        overlays.add(
+                            MapEventsOverlay(
+                                object : MapEventsReceiver {
+                                    override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
+                                        placeMarker(p, "Incident location")
+                                        return true
+                                    }
 
-                    overlays.add(
-                        MapEventsOverlay(
-                            object : MapEventsReceiver {
-                                override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
-                                    placeMarker(p, "Incident location")
-                                    return true
+                                    override fun longPressHelper(p: GeoPoint): Boolean = false
                                 }
-
-                                override fun longPressHelper(p: GeoPoint): Boolean = false
-                            }
+                            )
                         )
-                    )
-
-                    mapViewRef = this
+                    }
                     markerPos?.let { updateMapMarker(this, it, markerName) }
+                    invalidate()
                 }
             },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            update = { it.invalidate() }
         )
 
         Column(
@@ -598,7 +798,7 @@ private fun MapLocationPicker(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search location...") },
+                placeholder = { Text(reportText("Search location...", "搜索地点……", "Cari lokasi...")) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color.White, RoundedCornerShape(28.dp)),
@@ -653,7 +853,7 @@ private fun MapLocationPicker(
                     tint = ReportGreen
                 )
                 Spacer(Modifier.width(6.dp))
-                Text("Use Current Location", color = ReportGreen)
+                Text(reportText("Use Current Location", "使用当前位置", "Gunakan Lokasi Semasa"), color = ReportGreen)
             }
 
             Surface(
@@ -662,7 +862,7 @@ private fun MapLocationPicker(
                 shadowElevation = 1.dp
             ) {
                 Text(
-                    "OpenStreetMap • tap anywhere on the map to place the incident marker",
+                    "Tap the exact place where the incident happened. You can also use your current GPS location.",
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     fontSize = 11.sp,
                     color = Color.DarkGray
@@ -670,39 +870,111 @@ private fun MapLocationPicker(
             }
         }
 
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(20.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .background(Color(0xFFF7FAF7))
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Button(
-                onClick = onDismiss,
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF666666))
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                color = Color.White,
+                shadowElevation = 2.dp
             ) {
-                Text("Cancel")
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.map_marker_report),
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            reportText("Selected Incident Location", "已选择的事发地点", "Lokasi Insiden Dipilih"),
+                            fontWeight = FontWeight.Bold,
+                            color = ReportGreen,
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            markerName.ifBlank { AppLanguage.text("Tap the map to choose a location", "点击地图选择地点") },
+                            fontSize = 12.sp,
+                            color = Color(0xFF333333),
+                            maxLines = 2
+                        )
+                        markerPos?.let { point ->
+                            Text(
+                                String.format(
+                                    Locale.getDefault(),
+                                    "GPS: %.5f, %.5f",
+                                    point.latitude,
+                                    point.longitude
+                                ),
+                                fontSize = 10.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                }
             }
 
-            Button(
-                onClick = {
-                    markerPos?.let { point ->
-                        onLocationPicked(
-                            point.latitude,
-                            point.longitude,
-                            markerName.ifBlank {
-                                "Map: ${String.format(Locale.getDefault(), "%.4f", point.latitude)}, " +
-                                    String.format(Locale.getDefault(), "%.4f", point.longitude)
-                            }
-                        )
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                enabled = markerPos != null,
-                colors = ButtonDefaults.buttonColors(containerColor = ReportGreen)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("Confirm")
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF666666))
+                ) {
+                    Text(reportText("Cancel", "取消", "Batal"))
+                }
+
+                Button(
+                    onClick = {
+                        markerPos?.let { point ->
+                            onLocationPicked(
+                                point.latitude,
+                                point.longitude,
+                                markerName.ifBlank {
+                                    "Map: ${String.format(Locale.getDefault(), "%.4f", point.latitude)}, " +
+                                        String.format(Locale.getDefault(), "%.4f", point.longitude)
+                                }
+                            )
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = markerPos != null,
+                    colors = ButtonDefaults.buttonColors(containerColor = ReportGreen)
+                ) {
+                    Text(
+                        text = reportText("Confirm Incident Location", "确认事件地点", "Sahkan Lokasi Insiden"),
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+        if (isLocating) {
+            Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    androidx.compose.material3.CircularProgressIndicator(color = ReportGreen)
+                    Text(
+                        "Finding your location…",
+                        color = ReportGreen,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 14.dp)
+                    )
+                }
             }
         }
     }
@@ -722,7 +994,8 @@ private fun updateMapMarker(
         Marker(mapView).apply {
             position = point
             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-            this.title = title.ifBlank { "Incident location" }
+            this.title = title.ifBlank { "Selected incident location" }
+            icon = ContextCompat.getDrawable(mapView.context, R.drawable.map_marker_report)
         }
     )
     mapView.invalidate()
@@ -746,7 +1019,8 @@ private suspend fun searchLocation(
 private fun fetchCurrentLocation(
     fusedLocationClient: FusedLocationProviderClient,
     context: Context,
-    onLocationFound: (Double, Double) -> Unit
+    onLocationFound: (Double, Double) -> Unit,
+    onUnavailable: () -> Unit = {}
 ) {
     val hasFine = ActivityCompat.checkSelfPermission(
         context,
@@ -757,43 +1031,61 @@ private fun fetchCurrentLocation(
         Manifest.permission.ACCESS_COARSE_LOCATION
     ) == PackageManager.PERMISSION_GRANTED
 
-    if (!hasFine && !hasCoarse) return
+    if (!hasFine && !hasCoarse) {
+        Toast.makeText(
+            context,
+            "Location permission is not available. You can tap the map manually.",
+            Toast.LENGTH_SHORT
+        ).show()
+        return
+    }
 
-    val cancellationToken = CancellationTokenSource()
-    fusedLocationClient
-        .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cancellationToken.token)
-        .addOnSuccessListener { currentLocation ->
-            if (currentLocation != null) {
-                onLocationFound(currentLocation.latitude, currentLocation.longitude)
-            } else {
-                fusedLocationClient.lastLocation
-                    .addOnSuccessListener { lastLocation ->
-                        if (lastLocation != null) {
-                            onLocationFound(lastLocation.latitude, lastLocation.longitude)
-                        } else {
-                            Toast.makeText(
-                                context,
-                                "No GPS fix yet. In the emulator, set a location in Extended controls > Location, or tap the map manually.",
-                                Toast.LENGTH_LONG
-                            ).show()
-                        }
+    fun showLocationUnavailable() {
+        onUnavailable()
+        Toast.makeText(
+            context,
+            "No GPS fix yet. In the emulator, set a location in Extended controls > Location, or tap the map manually.",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    fun tryLastLocation() {
+        try {
+            fusedLocationClient.lastLocation
+                .addOnSuccessListener { lastLocation ->
+                    if (lastLocation != null) {
+                        onLocationFound(lastLocation.latitude, lastLocation.longitude)
+                    } else {
+                        showLocationUnavailable()
                     }
-                    .addOnFailureListener {
-                        Toast.makeText(
-                            context,
-                            "Unable to get current location. You can still tap the map manually.",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
+                }
+                .addOnFailureListener { showLocationUnavailable() }
+                .addOnCanceledListener { showLocationUnavailable() }
+        } catch (_: SecurityException) {
+            showLocationUnavailable()
+        } catch (_: Exception) {
+            showLocationUnavailable()
+        }
+    }
+
+    try {
+        val cancellationToken = CancellationTokenSource()
+        fusedLocationClient
+            .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cancellationToken.token)
+            .addOnSuccessListener { currentLocation ->
+                if (currentLocation != null) {
+                    onLocationFound(currentLocation.latitude, currentLocation.longitude)
+                } else {
+                    tryLastLocation()
+                }
             }
-        }
-        .addOnFailureListener {
-            Toast.makeText(
-                context,
-                "Unable to get current location. You can still tap the map manually.",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
+            .addOnFailureListener { tryLastLocation() }
+            .addOnCanceledListener { tryLastLocation() }
+    } catch (_: SecurityException) {
+        showLocationUnavailable()
+    } catch (_: Exception) {
+        showLocationUnavailable()
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -806,23 +1098,55 @@ private fun ReportForm(
     onBack: () -> Unit,
     onEditLocation: () -> Unit,
     errorMessage: String?,
+    isSubmitting: Boolean,
     onClearError: () -> Unit,
     onSubmit: (IncidentReport) -> Unit
 ) {
-    var species by remember(initialType) { mutableStateOf("") }
-    var count by remember(initialType) { mutableStateOf("1") }
-    var isAggressive by remember(initialType) { mutableStateOf(false) }
-    var description by remember(initialType) { mutableStateOf("") }
-    var severity by remember(initialType) { mutableStateOf(Severity.MEDIUM) }
-    var weather by remember(initialType) { mutableStateOf("Cloudy") }
-    var imageUris by remember(initialType) { mutableStateOf(emptyList<Uri>()) }
-    var expandedWeather by remember { mutableStateOf(false) }
-    var selectedDateTime by remember(initialType) { mutableStateOf(Date()) }
-    var showDatePicker by remember { mutableStateOf(false) }
-    var showTimePicker by remember { mutableStateOf(false) }
-    var lastUsedAction by remember { mutableStateOf<String?>(null) }
-
     val context = LocalContext.current
+    var species by rememberSaveable(initialType) { mutableStateOf(ReportDraftStore.species(context)) }
+    var count by rememberSaveable(initialType) { mutableStateOf(ReportDraftStore.count(context)) }
+    var isAggressive by rememberSaveable(initialType) { mutableStateOf(ReportDraftStore.aggressive(context)) }
+    var description by rememberSaveable(initialType) { mutableStateOf(ReportDraftStore.description(context)) }
+    var severity by rememberSaveable(initialType) { mutableStateOf(ReportDraftStore.severity(context)) }
+    var weather by rememberSaveable(initialType) { mutableStateOf(ReportDraftStore.weather(context)) }
+    var imageUriStrings by rememberSaveable(initialType) {
+        mutableStateOf(ReportDraftStore.images(context))
+    }
+    val imageUris = imageUriStrings.map(Uri::parse)
+    var expandedWeather by rememberSaveable { mutableStateOf(false) }
+    var selectedDateTimeMillis by rememberSaveable(initialType) { mutableStateOf(ReportDraftStore.dateTime(context)) }
+    val selectedDateTime = Date(selectedDateTimeMillis)
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
+    var showTimePicker by rememberSaveable { mutableStateOf(false) }
+    var lastUsedAction by rememberSaveable { mutableStateOf<String?>(null) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // ------------------------
+    // report form-keep draft input
+    // ------------------------
+    val persistCurrentDraft by rememberUpdatedState(newValue = {
+        ReportDraftStore.saveForm(
+            context, species, count, isAggressive, description, severity,
+            weather, selectedDateTimeMillis, initialLocationName, initialLocation
+        )
+    })
+    LaunchedEffect(
+        species, count, isAggressive, description, severity, weather,
+        selectedDateTimeMillis, initialLocationName, initialLocation
+    ) {
+        persistCurrentDraft()
+    }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) persistCurrentDraft()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            persistCurrentDraft()
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     val scrollState = rememberScrollState()
 
     if (showDatePicker) {
@@ -831,10 +1155,10 @@ private fun ReportForm(
             android.app.DatePickerDialog(
                 context,
                 { _, year, month, day ->
-                    selectedDateTime = Calendar.getInstance().apply {
+                    selectedDateTimeMillis = Calendar.getInstance().apply {
                         time = selectedDateTime
                         set(year, month, day)
-                    }.time
+                    }.timeInMillis
                     showDatePicker = false
                     showTimePicker = true
                 },
@@ -854,11 +1178,11 @@ private fun ReportForm(
             android.app.TimePickerDialog(
                 context,
                 { _, hour, minute ->
-                    selectedDateTime = Calendar.getInstance().apply {
+                    selectedDateTimeMillis = Calendar.getInstance().apply {
                         time = selectedDateTime
                         set(Calendar.HOUR_OF_DAY, hour)
                         set(Calendar.MINUTE, minute)
-                    }.time
+                    }.timeInMillis
                     showTimePicker = false
                 },
                 calendar.get(Calendar.HOUR_OF_DAY),
@@ -875,24 +1199,73 @@ private fun ReportForm(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            imageUris = imageUris + it
+            imageUriStrings = imageUriStrings + it.toString()
+            ReportDraftStore.setImages(context, imageUriStrings)
             analyzeImageForAnimal(context, it) { label ->
                 if (species.isBlank()) species = label
             }
         }
     }
 
+    // Keep the pending file URI in saved state. Some camera applications
+    // recreate WildGuard while the external camera activity is open.
+    var pendingCameraUriString by rememberSaveable {
+        mutableStateOf(ReportDraftStore.pendingCameraUri(context))
+    }
     val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap: Bitmap? ->
-        bitmap?.let {
-            val savedUri = saveBitmapToCache(context, it)
-            if (savedUri != null) {
-                imageUris = imageUris + savedUri
+        contract = ActivityResultContracts.TakePicture()
+    ) { wasSaved: Boolean ->
+        val savedUri = (pendingCameraUriString ?: ReportDraftStore.pendingCameraUri(context))
+            ?.let(Uri::parse)
+        if (!wasSaved || savedUri == null) {
+            Toast.makeText(
+                context,
+                "The camera returned no photo. Check the emulator camera settings or use Upload Gallery.",
+                Toast.LENGTH_LONG
+            ).show()
+        } else {
+            if (savedUri.toString() !in imageUriStrings) {
+                imageUriStrings = imageUriStrings + savedUri.toString()
+                ReportDraftStore.setImages(context, imageUriStrings)
             }
-            analyzeImageForAnimal(it) { label ->
+            analyzeImageForAnimal(context, savedUri) { label ->
                 if (species.isBlank()) species = label
             }
+        }
+        // A few camera apps report false even after writing the file. Keep the
+        // URI in that case so the recovery effect below can inspect it.
+        if (wasSaved && savedUri != null) {
+            pendingCameraUriString = null
+            ReportDraftStore.setPendingCameraUri(context, null)
+        }
+    }
+
+    // Some external camera apps recreate MainActivity and never redeliver the
+    // ActivityResult callback to the newly composed launcher. Recover the file
+    // directly from the URI saved before launching the camera.
+    LaunchedEffect(pendingCameraUriString) {
+        val uriString = pendingCameraUriString ?: return@LaunchedEffect
+        val recoveredUri = Uri.parse(uriString)
+        kotlinx.coroutines.delay(350)
+        val containsPhoto = withContext(Dispatchers.IO) {
+            runCatching {
+                context.contentResolver.openInputStream(recoveredUri)?.use { stream ->
+                    stream.read() != -1
+                } == true
+            }.getOrDefault(false)
+        }
+
+        if (containsPhoto && uriString !in imageUriStrings) {
+            imageUriStrings = imageUriStrings + uriString
+            ReportDraftStore.setImages(context, imageUriStrings)
+            analyzeImageForAnimal(context, recoveredUri) { label ->
+                if (species.isBlank()) species = label
+            }
+        }
+
+        if (containsPhoto) {
+            pendingCameraUriString = null
+            ReportDraftStore.setPendingCameraUri(context, null)
         }
     }
 
@@ -916,13 +1289,13 @@ private fun ReportForm(
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    initialType.displayName,
+                    localizedIncidentType(initialType),
                     fontSize = 21.sp,
                     fontWeight = FontWeight.Bold,
                     color = ReportGreen
                 )
                 Text(
-                    "Step 2: incident details",
+                    reportText("Step 2: incident details", "步骤 2：事件详情", "Langkah 2: butiran insiden"),
                     fontSize = 13.sp,
                     color = Color.Gray
                 )
@@ -952,47 +1325,91 @@ private fun ReportForm(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ReportActionCard(
-                title = "Snap Photo",
+                title = reportText("Snap Photo", "拍照", "Ambil Foto"),
                 icon = Icons.Default.CameraAlt,
                 isSelected = lastUsedAction == "camera"
             ) {
                 lastUsedAction = "camera"
-                cameraLauncher.launch(null)
+                ReportDraftStore.saveForm(
+                    context, species, count, isAggressive, description, severity,
+                    weather, selectedDateTimeMillis, initialLocationName, initialLocation
+                )
+                runCatching {
+                    val photoFile = File.createTempFile(
+                        "incident_${System.currentTimeMillis()}_",
+                        ".jpg",
+                        File(context.cacheDir, "report_photos").apply { mkdirs() }
+                    )
+                    val photoUri = FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        photoFile
+                    )
+                    pendingCameraUriString = photoUri.toString()
+                    ReportDraftStore.setPendingCameraUri(context, photoUri.toString())
+                    ReportDraftStore.setStepTwo(context, true)
+                    ReportDraftStore.setType(context, initialType)
+                    cameraLauncher.launch(photoUri)
+                }
+                    .onFailure {
+                        pendingCameraUriString = null
+                        ReportDraftStore.setPendingCameraUri(context, null)
+                        Toast.makeText(
+                            context,
+                            "No camera application is available. Configure the emulator camera or use Upload Gallery.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
             }
 
             ReportActionCard(
-                title = "Upload Gallery",
+                title = reportText("Upload Gallery", "从相册上传", "Muat Naik Galeri"),
                 icon = Icons.Default.PhotoLibrary,
                 isSelected = lastUsedAction == "gallery"
             ) {
                 lastUsedAction = "gallery"
+                ReportDraftStore.saveForm(
+                    context, species, count, isAggressive, description, severity,
+                    weather, selectedDateTimeMillis, initialLocationName, initialLocation
+                )
                 imagePickerLauncher.launch("image/*")
             }
         }
 
+        // ------------------------
+        // incident details-location coordinates
+        // ------------------------
+        val incidentCoordinates = initialLocation?.let { (latitude, longitude) ->
+            String.format(Locale.US, "%.6f, %.6f", latitude, longitude)
+        } ?: reportText("Tap to choose the exact incident location", "点击选择准确的事件地点", "Ketik untuk memilih lokasi insiden yang tepat")
+
         InfoCard(
-            label = "Current Location",
-            value = initialLocationName,
+            label = reportText("Incident Location", "事件地点", "Lokasi Insiden"),
+            value = incidentCoordinates,
             icon = Icons.Default.LocationOn,
             onClick = onEditLocation
         )
 
-        val formattedDateTime = remember(selectedDateTime) {
-            SimpleDateFormat(
-                "dd MMM yyyy • hh:mm a",
-                Locale.getDefault()
-            ).format(selectedDateTime)
+        // ------------------------
+        // incident details-phone date and time
+        // ------------------------
+        val formattedDateTime = remember(selectedDateTimeMillis, context) {
+            val phoneDate = android.text.format.DateFormat.getMediumDateFormat(context)
+                .format(selectedDateTime)
+            val phoneTime = android.text.format.DateFormat.getTimeFormat(context)
+                .format(selectedDateTime)
+            "$phoneDate • $phoneTime"
         }
 
         InfoCard(
-            label = "Date & Time",
+            label = reportText("Date & Time", "日期与时间", "Tarikh & Masa"),
             value = formattedDateTime,
             icon = Icons.Default.Event,
             onClick = { showDatePicker = true }
         )
 
         Text(
-            "Incident Severity",
+            reportText("Incident Severity", "事件严重程度", "Tahap Keterukan Insiden"),
             fontWeight = FontWeight.Bold,
             color = ReportGreen
         )
@@ -1002,16 +1419,16 @@ private fun ReportForm(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            SeverityOption("Low", severity == Severity.LOW, Color.Gray) {
+            SeverityOption(reportText("Low", "低", "Rendah"), severity == Severity.LOW, Color.Gray) {
                 severity = Severity.LOW
             }
-            SeverityOption("Medium", severity == Severity.MEDIUM, Color(0xFFFFA000)) {
+            SeverityOption(reportText("Medium", "中等", "Sederhana"), severity == Severity.MEDIUM, Color(0xFFFFA000)) {
                 severity = Severity.MEDIUM
             }
-            SeverityOption("High", severity == Severity.HIGH, Color.Red) {
+            SeverityOption(reportText("High", "高", "Tinggi"), severity == Severity.HIGH, Color.Red) {
                 severity = Severity.HIGH
             }
-            SeverityOption("Critical", severity == Severity.CRITICAL, Color(0xFFB71C1C)) {
+            SeverityOption(reportText("Critical", "危急", "Kritikal"), severity == Severity.CRITICAL, Color(0xFFB71C1C)) {
                 severity = Severity.CRITICAL
             }
         }
@@ -1022,7 +1439,7 @@ private fun ReportForm(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "Animals Affected",
+                    reportText("Animals Affected", "受影响动物数量", "Haiwan Terjejas"),
                     fontWeight = FontWeight.Bold,
                     color = ReportGreen,
                     fontSize = 13.sp
@@ -1046,7 +1463,7 @@ private fun ReportForm(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "Weather",
+                    reportText("Weather", "天气", "Cuaca"),
                     fontWeight = FontWeight.Bold,
                     color = ReportGreen,
                     fontSize = 13.sp
@@ -1056,7 +1473,7 @@ private fun ReportForm(
                     onExpandedChange = { expandedWeather = !expandedWeather }
                 ) {
                     OutlinedTextField(
-                        value = weather,
+                        value = localizedWeather(weather),
                         onValueChange = {},
                         readOnly = true,
                         modifier = Modifier
@@ -1076,7 +1493,7 @@ private fun ReportForm(
                     ) {
                         listOf("Clear", "Cloudy", "Rainy", "Stormy").forEach { option ->
                             DropdownMenuItem(
-                                text = { Text(option) },
+                                text = { Text(localizedWeather(option)) },
                                 onClick = {
                                     weather = option
                                     expandedWeather = false
@@ -1094,53 +1511,59 @@ private fun ReportForm(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                "Is the animal aggressive?",
+                reportText("Is the animal aggressive?", "动物是否具有攻击性？", "Adakah haiwan itu agresif?"),
                 fontWeight = FontWeight.Bold,
                 color = ReportGreen
             )
             Switch(
                 checked = isAggressive,
                 onCheckedChange = { isAggressive = it },
-                colors = SwitchDefaults.colors(checkedThumbColor = ReportGreen)
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = Color(0xFFD32F2F),
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = Color(0xFF9E9E9E)
+                )
             )
         }
 
-        OutlinedTextField(
-            value = species,
-            onValueChange = { species = it },
-            label = { Text("Detected / Observed Species") },
-            supportingText = {
-                Text("A selected photo may suggest a species automatically; you can edit it.")
-            },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                unfocusedContainerColor = Color.White,
-                focusedContainerColor = Color.White
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(reportText("Detected / Observed Species", "检测／观察到的物种", "Spesies Dikesan / Diperhatikan"), color = ReportGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            OutlinedTextField(
+                value = species,
+                onValueChange = { species = it },
+                placeholder = { Text(reportText("Enter or detect a species", "输入或检测物种", "Masukkan atau kesan spesies")) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = Color.White,
+                    focusedContainerColor = Color.White
+                )
             )
-        )
+            Text(reportText("A selected photo may suggest a species automatically; you can edit it.", "所选照片可能会自动建议物种；您仍可编辑。", "Foto yang dipilih mungkin mencadangkan spesies secara automatik; anda boleh mengeditnya."), modifier = Modifier.padding(horizontal = 12.dp), fontSize = 11.sp, color = Color(0xFF555555))
+        }
 
-        OutlinedTextField(
-            value = description,
-            onValueChange = {
-                description = it
-                onClearError()
-            },
-            label = { Text("Description") },
-            placeholder = { Text("Describe what happened...") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(130.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                unfocusedContainerColor = Color.White,
-                focusedContainerColor = Color.White
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(reportText("Description", "说明", "Penerangan"), color = ReportGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            OutlinedTextField(
+                value = description,
+                onValueChange = {
+                    description = it
+                    onClearError()
+                },
+                placeholder = { Text(reportText("Describe what happened...", "描述发生的情况……", "Terangkan apa yang berlaku...")) },
+                modifier = Modifier.fillMaxWidth().height(130.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = Color.White,
+                    focusedContainerColor = Color.White
+                )
             )
-        )
+        }
 
         if (imageUris.isNotEmpty()) {
             Text(
-                "Evidence Attached (${imageUris.size})",
+                reportText("Evidence Attached", "已附加证据", "Bukti Dilampirkan") + " (${imageUris.size})",
                 fontWeight = FontWeight.Bold,
                 color = ReportGreen
             )
@@ -1149,15 +1572,33 @@ private fun ReportForm(
                 modifier = Modifier.horizontalScroll(rememberScrollState())
             ) {
                 imageUris.forEach { uri ->
-                    AsyncImage(
-                        model = uri,
-                        contentDescription = "Report evidence",
-                        modifier = Modifier
-                            .size(100.dp)
-                            .background(Color.White, RoundedCornerShape(12.dp))
-                            .border(1.dp, Color.LightGray, RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.Crop
-                    )
+                    Box(Modifier.size(104.dp)) {
+                        AsyncImage(
+                            model = uri,
+                            contentDescription = "Report evidence",
+                            modifier = Modifier
+                                .size(100.dp)
+                                .align(Alignment.BottomStart)
+                                .background(Color.White, RoundedCornerShape(12.dp))
+                                .border(1.dp, Color.LightGray, RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                        Box(
+                            modifier = Modifier.align(Alignment.TopEnd).offset(x = 2.dp, y = (-2).dp)
+                                .size(20.dp).background(Color(0xFFD32F2F), CircleShape)
+                                .clickable {
+                                imageUriStrings = imageUriStrings - uri.toString()
+                                ReportDraftStore.setImages(context, imageUriStrings)
+                                if (uri.scheme == "content") {
+                                    runCatching { context.contentResolver.delete(uri, null, null) }
+                                }
+                                lastUsedAction = null
+                            },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Close, "Remove attached photo", tint = Color.White, modifier = Modifier.size(12.dp))
+                        }
+                    }
                 }
             }
         }
@@ -1194,9 +1635,15 @@ private fun ReportForm(
                 .fillMaxWidth()
                 .height(56.dp),
             shape = RoundedCornerShape(28.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = ReportGreen)
+            colors = ButtonDefaults.buttonColors(containerColor = ReportGreen),
+            enabled = !isSubmitting
         ) {
-            Text("Submit Report", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(
+                if (isSubmitting) reportText("Saving Report…", "正在保存举报…", "Menyimpan Laporan…")
+                else reportText("Submit Report", "提交报告", "Hantar Laporan"),
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
@@ -1333,12 +1780,46 @@ private fun runImageLabeling(
     image: InputImage,
     onResult: (String) -> Unit
 ) {
-    val labeler = ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS)
+    // Ignore very weak generic labels before applying the species rules below.
+    val options = ImageLabelerOptions.Builder()
+        .setConfidenceThreshold(0.65f)
+        .build()
+    val labeler = ImageLabeling.getClient(options)
     labeler.process(image)
         .addOnSuccessListener { labels ->
-            labels.firstOrNull()?.text?.takeIf(String::isNotBlank)?.let(onResult)
+            detectWildlifeName(labels)?.let(onResult)
         }
         .addOnCompleteListener {
             labeler.close()
         }
+}
+
+private fun detectWildlifeName(labels: List<com.google.mlkit.vision.label.ImageLabel>): String? {
+    val wildlifeNames = linkedMapOf(
+        "dog" to "Dog", "puppy" to "Dog", "canine" to "Dog",
+        "cat" to "Cat", "kitten" to "Cat", "feline" to "Cat",
+        "macaque" to "Monkey", "monkey" to "Monkey", "primate" to "Monkey", "ape" to "Monkey",
+        "orangutan" to "Orangutan", "rhinoceros" to "Rhinoceros", "rhino" to "Rhinoceros",
+        "hornbill" to "Hornbill", "eagle" to "Eagle", "owl" to "Owl", "parrot" to "Parrot",
+        "bird" to "Bird", "elephant" to "Elephant", "tiger" to "Tiger", "leopard" to "Leopard",
+        "deer" to "Deer", "wild boar" to "Wild Boar", "boar" to "Wild Boar", "bear" to "Bear",
+        "snake" to "Snake", "crocodile" to "Crocodile", "alligator" to "Crocodile",
+        "turtle" to "Turtle", "tortoise" to "Tortoise", "fox" to "Fox", "otter" to "Otter"
+    )
+    val candidates = labels.mapNotNull { label ->
+        val raw = label.text.trim()
+        val normalized = raw.lowercase()
+        val species = wildlifeNames.entries
+            .firstOrNull { (keyword, _) -> normalized == keyword }
+            ?.value ?: return@mapNotNull null
+
+        // Generic "Bird" is a frequent false positive from ML Kit. Only use it
+        // at high confidence; named bird species and mammals use the normal limit.
+        val minimumConfidence = if (species == "Bird") 0.85f else 0.68f
+        if (label.confidence >= minimumConfidence) species to label.confidence else null
+    }
+
+    // Never fill the report with an arbitrary generic label. If no supported
+    // species is confidently recognised, leave the editable field blank.
+    return candidates.maxByOrNull { it.second }?.first
 }

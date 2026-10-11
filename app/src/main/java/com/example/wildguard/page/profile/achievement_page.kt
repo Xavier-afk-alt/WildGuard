@@ -29,7 +29,11 @@ import com.example.wildguard.components.AchievementCard
 import com.example.wildguard.components.PageTopBar
 import com.example.wildguard.components.VerticalScrollIndicators
 import com.example.wildguard.data.Achievement
+import com.example.wildguard.data.localizedDescription
+import com.example.wildguard.data.localizedTitle
+import com.example.wildguard.data.localizedUnlockCondition
 import com.example.wildguard.viewmodel.RewardViewModel
+import com.example.wildguard.localization.AppLanguage
 
 @Composable
 fun AchievementsPage(
@@ -47,24 +51,12 @@ fun AchievementsPage(
         modifier = Modifier.fillMaxSize()
     ) {
 
-        /*
-         * =========================================
-         * TOP BAR
-         * =========================================
-         */
-
         PageTopBar(
-            title = "Achievements",
+            title = AppLanguage.text("Achievements", "我的成就", "Pencapaian"),
             onBackClick = {
                 navController.popBackStack()
             }
         )
-
-        /*
-         * =========================================
-         * ACHIEVEMENT LIST AREA
-         * =========================================
-         */
 
         Box(
             modifier = Modifier.weight(1f)
@@ -88,7 +80,7 @@ fun AchievementsPage(
 
                 item {
                     Text(
-                        text = "Your progress",
+                        text = AppLanguage.text("Your progress", "您的进度", "Kemajuan Anda"),
                         style =
                             MaterialTheme
                                 .typography
@@ -104,12 +96,12 @@ fun AchievementsPage(
                         text =
                             "${rewardViewModel.achievements.count { it.unlocked }} / " +
                                     "${rewardViewModel.achievements.size} " +
-                                    "achievements unlocked"
+                                    AppLanguage.text("achievements unlocked", "个成就已解锁", "pencapaian dibuka")
                     )
 
                     Text(
                         text =
-                            "Lifetime points earned: " +
+                            AppLanguage.text("Lifetime points earned: ", "累计获得积分：", "Jumlah mata diperoleh: ") +
                                     rewardViewModel.totalEarnedPoints,
 
                         color =
@@ -155,16 +147,6 @@ fun AchievementsPage(
                 }
             }
 
-            /*
-             * =====================================
-             * UNIFIED ARROW POSITION
-             *
-             * Exactly the same as:
-             * - Redeem Shop
-             * - Inventory
-             * =====================================
-             */
-
             VerticalScrollIndicators(
                 canScrollBackward =
                     achievementListState.canScrollBackward,
@@ -180,12 +162,6 @@ fun AchievementsPage(
             )
         }
     }
-
-    /*
-     * =========================================
-     * ACHIEVEMENT DETAIL DIALOG
-     * =========================================
-     */
 
     selectedAchievement?.let { achievement ->
 
@@ -208,14 +184,14 @@ private fun AchievementDetailDialog(
 
         title = {
             Text(
-                "${achievement.icon} ${achievement.title}"
+                "${achievement.icon} ${achievement.localizedTitle()}"
             )
         },
 
         text = {
             Column {
                 Text(
-                    achievement.description
+                    achievement.localizedDescription()
                 )
 
                 Spacer(
@@ -226,9 +202,9 @@ private fun AchievementDetailDialog(
                 Text(
                     text =
                         if (achievement.unlocked) {
-                            "UNLOCKED"
+                            AppLanguage.text("UNLOCKED", "已解锁", "DIBUKA")
                         } else {
-                            "LOCKED"
+                            AppLanguage.text("LOCKED", "未解锁", "DIKUNCI")
                         },
 
                     color =
@@ -254,20 +230,20 @@ private fun AchievementDetailDialog(
                 )
 
                 Text(
-                    "Progress: " +
+                    AppLanguage.text("Progress: ", "进度：", "Kemajuan: ") +
                             "${achievement.progress}/" +
                             achievement.target
                 )
 
                 Text(
-                    "Unlock condition: " +
-                            achievement.unlockCondition
+                    AppLanguage.text("Unlock condition: ", "解锁条件：", "Syarat membuka: ") +
+                            achievement.localizedUnlockCondition()
                 )
 
                 Text(
-                    "Reward: +" +
+                    AppLanguage.text("Reward: +", "奖励：+", "Ganjaran: +") +
                             achievement.rewardPoints +
-                            " points"
+                            AppLanguage.text(" points", " 积分", " mata")
                 )
             }
         },
@@ -276,7 +252,7 @@ private fun AchievementDetailDialog(
             TextButton(
                 onClick = onDismiss
             ) {
-                Text("Close")
+                Text(AppLanguage.text("Close", "关闭", "Tutup"))
             }
         }
     )

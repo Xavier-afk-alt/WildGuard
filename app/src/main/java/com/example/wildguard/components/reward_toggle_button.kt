@@ -11,6 +11,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.wildguard.R
 import com.example.wildguard.viewmodel.RewardType
+import com.example.wildguard.localization.AppLanguage
 
 @Composable
 fun RewardToggleButton(
@@ -65,9 +66,9 @@ fun RewardToggleButton(
 
                 Text(
                     if (currentType == RewardType.PLANT)
-                        "Animals"
+                        AppLanguage.text("Animals", "动物")
                     else
-                        "Plants",
+                        AppLanguage.text("Plants", "植物"),
                     style = MaterialTheme.typography.labelSmall
                 )
 

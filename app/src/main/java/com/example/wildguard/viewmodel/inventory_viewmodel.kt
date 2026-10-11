@@ -2,10 +2,44 @@ package com.example.wildguard.viewmodel
 
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.wildguard.data.InventoryItem
 import com.example.wildguard.data.RewardItem
+import com.example.wildguard.data.rewardItems
+import com.example.wildguard.data.remote.SupabaseProvider
+import com.example.wildguard.data.repository.SupabaseInventoryRepository
+import com.example.wildguard.data.repository.RewardCatalogRepository
+import io.github.jan.supabase.auth.auth
+import kotlinx.coroutines.launch
 
 class InventoryViewModel : ViewModel() {
+
+    private val repository by lazy { SupabaseInventoryRepository() }
+    private var userId: String? = null
+
+    fun initializeForCurrentUser() {
+        if (!SupabaseProvider.isConfigured) return
+        val currentUserId = SupabaseProvider.client.auth.currentUserOrNull()?.id.orEmpty()
+        if (currentUserId.isBlank() || currentUserId == userId) return
+        userId = currentUserId
+        viewModelScope.launch {
+            RewardCatalogRepository.refresh()
+            val quantities = repository.getInventory(currentUserId).getOrDefault(emptyMap())
+            _items.clear()
+            quantities.filterValues { it > 0 }.forEach { (rewardId, quantity) ->
+                val reward = RewardCatalogRepository.rewards.firstOrNull { it.id == rewardId }?.toRewardItem()
+                    ?: rewardItems.firstOrNull { it.id == rewardId }
+                reward?.let { item ->
+                    _items.add(InventoryItem(item.id, item.title, item.description, item.image, quantity))
+                }
+            }
+        }
+    }
+
+    private fun persist(rewardId: Int, quantity: Int) {
+        val currentUserId = userId ?: return
+        viewModelScope.launch { repository.setQuantity(currentUserId, rewardId, quantity) }
+    }
 
     private val _items =
         mutableStateListOf<InventoryItem>()
@@ -63,6 +97,8 @@ class InventoryViewModel : ViewModel() {
 
         }
 
+        persist(reward.id, _items.first { it.rewardId == reward.id }.quantity)
+
     }
 
 
@@ -103,6 +139,8 @@ class InventoryViewModel : ViewModel() {
                 )
 
         }
+
+        persist(rewardId, _items.firstOrNull { it.rewardId == rewardId }?.quantity ?: 0)
 
         return true
 

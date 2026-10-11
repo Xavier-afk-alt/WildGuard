@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.filled.Forest
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -75,10 +77,18 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import java.util.Locale
+import com.example.wildguard.localization.AppLanguage
 
 private val EmergencyRed = Color(0xFFFF5252)
 private val EmergencyGreen = Color(0xFF2E7D32)
 private const val PERHILITAN_HOTLINE = "1800885151"
+
+private data class EmergencyGuideInfo(
+    val title: String,
+    val summary: String,
+    val steps: List<String>,
+    val color: Color
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,6 +103,16 @@ fun EmergencyPage(navController: NavController) {
     var countdown by remember { mutableIntStateOf(3) }
     var locationText by remember { mutableStateOf("Checking GPS permission…") }
     var countDownTimer by remember { mutableStateOf<CountDownTimer?>(null) }
+    var selectedGuide by remember { mutableStateOf<EmergencyGuideInfo?>(null) }
+
+    selectedGuide?.let { guide ->
+        EmergencyGuideContent(
+            guide = guide,
+            onBack = { selectedGuide = null },
+            onReport = { navController.navigate(Page.Report.route) }
+        )
+        return
+    }
 
     fun refreshLocation() {
         fetchEmergencyLocation(
@@ -145,7 +165,7 @@ fun EmergencyPage(navController: NavController) {
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text("Emergency Response") },
+            title = { Text(AppLanguage.text("Emergency Response", "紧急响应")) },
             navigationIcon = {
                 IconButton(onClick = { navController.popBackStack() }) {
                     Icon(
@@ -184,12 +204,12 @@ fun EmergencyPage(navController: NavController) {
                         Spacer(Modifier.width(14.dp))
                         Column {
                             Text(
-                                "Need Immediate Assistance?",
+                                AppLanguage.text("Need Immediate Assistance?", "需要立即援助吗？"),
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                "Press and hold SOS for 3 seconds to open the wildlife emergency hotline.",
+                                AppLanguage.text("Press and hold SOS for 3 seconds to open the wildlife emergency hotline.", "长按 SOS 3 秒以拨打野生动物紧急热线。"),
                                 color = Color.White,
                                 fontSize = 12.sp
                             )
@@ -286,7 +306,14 @@ fun EmergencyPage(navController: NavController) {
                     description = "Animal requires medical assistance.",
                     icon = Icons.Default.Favorite,
                     color = Color(0xFFD32F2F),
-                    onClick = { navController.navigate(Page.Report.route) }
+                    onClick = {
+                        selectedGuide = EmergencyGuideInfo(
+                            "Injured Wildlife",
+                            "Help an injured animal without putting yourself or the animal at greater risk.",
+                            listOf("Keep a safe distance and keep other people away.", "Do not touch, feed or move the animal.", "Note the exact location and take a photo from a safe distance.", "Call PERHILITAN or submit a WildGuard report."),
+                            Color(0xFFD32F2F)
+                        )
+                    }
                 )
 
                 Spacer(Modifier.height(12.dp))
@@ -296,7 +323,14 @@ fun EmergencyPage(navController: NavController) {
                     description = "Move to safety and report smoke or fire.",
                     icon = Icons.Default.LocalFireDepartment,
                     color = Color.Red,
-                    onClick = { navController.navigate(Page.Report.route) }
+                    onClick = {
+                        selectedGuide = EmergencyGuideInfo(
+                            "Forest Fire",
+                            "Your safety comes first when smoke or fire is detected.",
+                            listOf("Move away from the fire and travel against the smoke direction.", "Do not attempt to fight a spreading fire.", "Call 999 when there is immediate danger.", "Record the location and submit a report only when safe."),
+                            Color.Red
+                        )
+                    }
                 )
 
                 Spacer(Modifier.height(12.dp))
@@ -306,7 +340,14 @@ fun EmergencyPage(navController: NavController) {
                     description = "Protect forests and report illegal activities.",
                     icon = Icons.Default.Forest,
                     color = EmergencyGreen,
-                    onClick = { navController.navigate(Page.Report.route) }
+                    onClick = {
+                        selectedGuide = EmergencyGuideInfo(
+                            "Illegal Logging",
+                            "Observe from a safe place and never confront suspected offenders.",
+                            listOf("Keep your distance and avoid being noticed.", "Record the location, time and vehicle details if safe.", "Do not enter restricted or dangerous areas.", "Submit the evidence to WildGuard and the authorities."),
+                            EmergencyGreen
+                        )
+                    }
                 )
 
                 Spacer(Modifier.height(12.dp))
@@ -316,7 +357,14 @@ fun EmergencyPage(navController: NavController) {
                     description = "Report illegal hunting or wildlife trapping.",
                     icon = Icons.Default.Warning,
                     color = Color(0xFFFF9800),
-                    onClick = { navController.navigate(Page.Report.route) }
+                    onClick = {
+                        selectedGuide = EmergencyGuideInfo(
+                            "Poaching",
+                            "Illegal hunting can be dangerous. Do not approach traps or suspects.",
+                            listOf("Leave the area quietly and maintain a safe distance.", "Do not remove traps or disturb evidence.", "Note people, vehicles, sounds and the exact location.", "Call PERHILITAN and submit a detailed report."),
+                            Color(0xFFFF9800)
+                        )
+                    }
                 )
 
                 Spacer(Modifier.height(24.dp))
@@ -366,6 +414,50 @@ private fun openEmergencyDialer(context: Context) {
         Uri.parse("tel:$PERHILITAN_HOTLINE")
     )
     runCatching { context.startActivity(intent) }
+}
+
+@Composable
+private fun EmergencyGuideContent(
+    guide: EmergencyGuideInfo,
+    onBack: () -> Unit,
+    onReport: () -> Unit
+) {
+    Column(Modifier.fillMaxSize().background(Color(0xFFF5F8F5))) {
+        Row(
+            Modifier.fillMaxWidth().background(EmergencyGreen).statusBarsPadding().padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
+            }
+            Text(guide.title, color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
+        }
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Icon(Icons.Default.Warning, null, tint = guide.color, modifier = Modifier.size(68.dp))
+            Text("What you should do", fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, color = EmergencyGreen)
+            Text(guide.summary, fontSize = 16.sp)
+            guide.steps.forEachIndexed { index, step ->
+                Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Top) {
+                        Surface(shape = CircleShape, color = guide.color) {
+                            Text("${index + 1}", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp))
+                        }
+                        Text(step, modifier = Modifier.padding(start = 12.dp).weight(1f), fontSize = 15.sp)
+                    }
+                }
+            }
+            Button(
+                onClick = onReport,
+                modifier = Modifier.fillMaxWidth().height(54.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = EmergencyGreen),
+                shape = RoundedCornerShape(27.dp)
+            ) { Text("Create a Report", fontWeight = FontWeight.Bold) }
+            Spacer(Modifier.height(18.dp))
+        }
+    }
 }
 
 @SuppressLint("MissingPermission")

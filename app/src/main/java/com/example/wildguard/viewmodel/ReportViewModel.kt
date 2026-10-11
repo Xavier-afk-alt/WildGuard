@@ -1,11 +1,15 @@
 package com.example.wildguard.viewmodel
 
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.wildguard.data.repository.SharedIncidentRepository
 import com.example.wildguard.data.report.IncidentReport
+import kotlinx.coroutines.launch
 import java.util.UUID
 
 class ReportViewModel : ViewModel() {
@@ -20,11 +24,14 @@ class ReportViewModel : ViewModel() {
     var lastSubmittedReport by mutableStateOf<IncidentReport?>(null)
         private set
 
+    var isSubmitting by mutableStateOf(false)
+        private set
+
     fun clearError() {
         errorMessage = null
     }
 
-    fun submitReport(report: IncidentReport): Boolean {
+    fun submitReport(report: IncidentReport, context: Context, onSaved: (IncidentReport) -> Unit): Boolean {
         val validationError = validate(report)
 
         if (validationError != null) {
@@ -38,8 +45,20 @@ class ReportViewModel : ViewModel() {
             }
         )
 
-        _submittedReports.add(completedReport)
-        lastSubmittedReport = completedReport
+        isSubmitting = true
+        viewModelScope.launch {
+            SharedIncidentRepository.add(completedReport, context)
+                .onSuccess {
+                    _submittedReports.add(0, completedReport)
+                    lastSubmittedReport = completedReport
+                    errorMessage = null
+                    onSaved(completedReport)
+                }
+                .onFailure { error ->
+                    errorMessage = "Report could not be saved to the database: ${error.message ?: "Please try again."}"
+                }
+            isSubmitting = false
+        }
         errorMessage = null
         return true
     }

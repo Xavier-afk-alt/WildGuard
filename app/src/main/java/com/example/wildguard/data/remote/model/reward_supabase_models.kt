@@ -11,6 +11,9 @@ data class RewardProgressRow(
     @SerialName("current_points")
     val currentPoints: Int = 0,
 
+    @SerialName("experience_points")
+    val experiencePoints: Int = 0,
+
     @SerialName("plant_growth_points")
     val plantGrowthPoints: Int = 0,
 
@@ -30,7 +33,10 @@ data class RewardProgressRow(
     val guidebookCount: Int = 0,
 
     @SerialName("selected_animal")
-    val selectedAnimal: String = "TIGER"
+    val selectedAnimal: String = "TIGER",
+
+    @SerialName("reward_type")
+    val rewardType: String = "PLANT"
 )
 
 @Serializable

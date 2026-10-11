@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.wildguard.R
 import com.example.wildguard.data.RewardItem
@@ -41,7 +42,9 @@ fun RewardCard(
 
     modifier: Modifier = Modifier,
 
-    compact: Boolean = false
+    compact: Boolean = false,
+
+    available: Boolean = true
 
 ) {
 
@@ -121,15 +124,19 @@ fun RewardCard(
             Text(
 
                 text =
-                    "${reward.type}  |  Stock: ${
-                        if (
+                    if (!available) {
+                        "${reward.type}  |  Pending"
+                    } else {
+                        "${reward.type}  |  Stock: ${
+                            if (
                             isLowStockAlert
-                        ) {
-                            "-"
-                        } else {
-                            reward.stock
-                        }
-                    }",
+                            ) {
+                                "-"
+                            } else {
+                                reward.stock
+                            }
+                        }"
+                    },
 
                 style =
                     MaterialTheme
@@ -185,6 +192,10 @@ fun RewardCard(
                 text =
                     reward.title,
 
+                modifier = Modifier.fillMaxWidth(),
+
+                textAlign = TextAlign.Center,
+
                 style =
                     MaterialTheme
                         .typography
@@ -209,6 +220,10 @@ fun RewardCard(
 
                 text =
                     reward.description,
+
+                modifier = Modifier.fillMaxWidth(),
+
+                textAlign = TextAlign.Center,
 
                 style =
                     MaterialTheme
@@ -273,6 +288,9 @@ fun RewardCard(
                         insufficientPoint =
                             insufficientPoint,
 
+                        available =
+                            available,
+
                         onPurchase =
                             onPurchase,
 
@@ -336,6 +354,9 @@ fun RewardCard(
                         insufficientPoint =
                             insufficientPoint,
 
+                        available =
+                            available,
+
                         onPurchase =
                             onPurchase,
 
@@ -365,6 +386,8 @@ private fun PurchaseButton(
 
     insufficientPoint: Boolean,
 
+    available: Boolean,
+
     onPurchase: () -> Unit,
 
     modifier: Modifier = Modifier
@@ -377,8 +400,9 @@ private fun PurchaseButton(
         onClick =
             onPurchase,
 
-        enabled =
-            true,
+        // Keep every shop button tappable. Pending/sold-out/insufficient items
+        // use the caller's snackbar explanation instead of silently doing nothing.
+        enabled = true,
 
         modifier =
             modifier,
@@ -399,6 +423,11 @@ private fun PurchaseButton(
                 containerColor =
 
                     when {
+
+
+                        !available ->
+
+                            Color(0xFFFFA000)
 
 
                         isSoldOut ->
@@ -422,16 +451,13 @@ private fun PurchaseButton(
                     },
 
 
-                contentColor =
-
-                    if (isSoldOut) {
-
-                        Color.White
-
-                    } else {
-
-                        Color.Black
-                    }
+                contentColor = if (!available || isSoldOut) Color.White else Color.Black,
+                disabledContainerColor = when {
+                    !available -> Color(0xFFFFA000)
+                    isSoldOut -> Color(0xFFFF5252)
+                    else -> Color(0xFFD0D0D0)
+                },
+                disabledContentColor = if (!available || isSoldOut) Color.White else Color.Black
             )
 
     ) {
@@ -441,7 +467,11 @@ private fun PurchaseButton(
 
             text =
 
-                if (isSoldOut) {
+                if (!available) {
+
+                    "Pending"
+
+                } else if (isSoldOut) {
 
                     "Sold Out"
 

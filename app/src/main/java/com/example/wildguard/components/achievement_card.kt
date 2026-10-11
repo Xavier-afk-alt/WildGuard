@@ -24,6 +24,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.wildguard.data.Achievement
+import com.example.wildguard.data.localizedTitle
+import com.example.wildguard.localization.AppLanguage
 
 @Composable
 fun AchievementCard(
@@ -55,18 +57,23 @@ fun AchievementCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = achievement.title,
+                    text = achievement.localizedTitle(),
                     fontWeight = FontWeight.Bold
                 )
 
                 Text(
-                    text = if (achievement.unlocked) "Unlocked" else "Locked",
+                    text = if (achievement.unlocked) {
+                        AppLanguage.text("Unlocked", "已解锁", "Dibuka")
+                    } else {
+                        AppLanguage.text("Locked", "未解锁", "Dikunci")
+                    },
                     color = if (achievement.unlocked) Color(0xFF2E7D32) else Color.Gray,
                     style = MaterialTheme.typography.labelMedium
                 )
 
                 Text(
-                    text = "${achievement.progress}/${achievement.target} • +${achievement.rewardPoints} pts",
+                    text = "${achievement.progress}/${achievement.target} • +${achievement.rewardPoints} " +
+                            AppLanguage.text("pts", "积分", "mata"),
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray
                 )

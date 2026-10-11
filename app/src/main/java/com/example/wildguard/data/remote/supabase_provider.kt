@@ -5,6 +5,7 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.storage.Storage
 
 /**
  * Single Supabase client shared by repositories.
@@ -34,6 +35,7 @@ object SupabaseProvider {
                 host = "auth"
             }
             install(Postgrest)
+            install(Storage)
         }
     }
 }

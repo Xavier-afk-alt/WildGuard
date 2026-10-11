@@ -19,12 +19,16 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -32,6 +36,7 @@ import com.example.wildguard.components.PurchaseConfirmationDialog
 import com.example.wildguard.components.RedeemHeader
 import com.example.wildguard.components.RewardCard
 import com.example.wildguard.components.VerticalScrollIndicators
+import com.example.wildguard.R
 import com.example.wildguard.data.PurchaseResult
 import com.example.wildguard.data.RewardItem
 import com.example.wildguard.viewmodel.InventoryViewModel
@@ -86,11 +91,21 @@ fun RedeemShopPage(
     // ============================================================
 
     fun requestPurchase(
-        reward: RewardItem
+        reward: RewardItem,
+        available: Boolean = true
     ) {
 
 
         when {
+
+
+            !available -> {
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        "This reward is pending and will be available in a future update."
+                    )
+                }
+            }
 
 
             reward.stock < 0 -> {
@@ -237,13 +252,8 @@ fun RedeemShopPage(
 
 
         Column(
-
-            modifier =
-                Modifier.fillMaxSize()
-
+            modifier = Modifier.fillMaxSize()
         ) {
-
-
             RedeemHeader(
 
                 coin =
@@ -351,12 +361,16 @@ fun RedeemShopPage(
                                 onPurchase = {
 
                                     requestPurchase(
-                                        rowItems.first()
+                                        rowItems.first(),
+                                        rowItems.first().buttonStatus == "PURCHASE"
                                     )
                                 },
 
                                 compact =
                                     false,
+
+                                available =
+                                    rowItems.first().buttonStatus == "PURCHASE",
 
                                 modifier =
                                     Modifier.fillMaxWidth()
@@ -404,12 +418,16 @@ fun RedeemShopPage(
                                         onPurchase = {
 
                                             requestPurchase(
-                                                reward
+                                                reward,
+                                                reward.buttonStatus == "PURCHASE"
                                             )
                                         },
 
                                         compact =
                                             compactCard,
+
+                                        available =
+                                            reward.buttonStatus == "PURCHASE",
 
                                         modifier = Modifier
 

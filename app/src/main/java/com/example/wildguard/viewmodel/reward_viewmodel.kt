@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.wildguard.components.ReactionType
 import com.example.wildguard.data.Achievement
 import com.example.wildguard.data.AchievementType
@@ -17,8 +18,21 @@ import com.example.wildguard.data.RewardItem
 import com.example.wildguard.data.achievementItems as initialAchievementItems
 import com.example.wildguard.data.rewardItems as initialRewardItems
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.util.UUID
 import kotlin.random.Random
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import com.example.wildguard.data.remote.SupabaseProvider
+import com.example.wildguard.data.remote.model.RewardProgressRow
+import com.example.wildguard.data.remote.model.UserAchievementRow
+import com.example.wildguard.data.repository.SupabaseAchievementRepository
+import com.example.wildguard.data.repository.SupabasePointRepository
+import com.example.wildguard.data.repository.SupabaseRewardProgressRepository
+import com.example.wildguard.data.repository.RewardCatalogRepository
+import com.example.wildguard.data.repository.UserRewardStockRepository
+import io.github.jan.supabase.auth.auth
 
 
 enum class RewardType {
@@ -41,6 +55,13 @@ enum class AnimalType {
 
 
 class RewardViewModel : ViewModel() {
+
+    private val progressRepository by lazy { SupabaseRewardProgressRepository() }
+    private val pointRepository by lazy { SupabasePointRepository() }
+    private val achievementRepository by lazy { SupabaseAchievementRepository() }
+    private val userRewardStockRepository by lazy { UserRewardStockRepository() }
+    private var activeUserId: String? = null
+    private var rewardDataLoaded = false
 
 
     // ============================================================
@@ -90,7 +111,7 @@ class RewardViewModel : ViewModel() {
 
     var currentPoint by
     mutableIntStateOf(
-        5000
+        0
     )
         private set
 
@@ -103,8 +124,7 @@ class RewardViewModel : ViewModel() {
     // currentPoint      = spendable balance
     // plantGrowthPoint  = non-decreasing plant progression
     //
-    // The plant starts at the same 5000-point stage as the
-    // current demo balance. Earning points increases this value,
+    // The plant and EXP start from zero. Earning points increases this value,
     // but purchases do NOT reduce it.
     //
     // This is also the value that should later be persisted
@@ -113,9 +133,148 @@ class RewardViewModel : ViewModel() {
 
     var plantGrowthPoint by
     mutableIntStateOf(
-        currentPoint
+        0
     )
         private set
+
+    val experiencePoint: Int
+        get() = plantGrowthPoint
+
+    fun initializeForCurrentUser() {
+        if (!SupabaseProvider.isConfigured) return
+        val userId = SupabaseProvider.client.auth.currentUserOrNull()?.id.orEmpty()
+        if (userId.isBlank()) return
+        if (rewardDataLoaded && activeUserId == userId) return
+        rewardDataLoaded = true
+        activeUserId = userId
+        _achievements.clear()
+        _achievements.addAll(initialAchievementItems)
+        viewModelScope.launch {
+            loadRewardCatalogForUser(userId)
+            startDailyInteractionResetSchedule(userId)
+            if (RewardCatalogRepository.achievements.isNotEmpty()) {
+                _achievements.clear()
+                _achievements.addAll(RewardCatalogRepository.achievements.map { it.toAchievement() })
+            }
+            val saved = progressRepository.getProgress(userId).getOrNull()
+            if (saved == null) {
+                currentPoint = 0
+                plantGrowthPoint = 0
+                totalEarnedPoints = 0
+                loginCount = 0
+                reportCount = 0
+                guidebookCount = 0
+                lastDailyLoginDate = null
+                persistProgress()
+            } else {
+                currentPoint = saved.currentPoints.coerceAtLeast(0)
+                plantGrowthPoint = saved.experiencePoints.coerceAtLeast(0)
+                totalEarnedPoints = saved.totalEarnedPoints.coerceAtLeast(0)
+                loginCount = saved.loginCount.coerceAtLeast(0)
+                reportCount = saved.reportCount.coerceAtLeast(0)
+                guidebookCount = saved.guidebookCount.coerceAtLeast(0)
+                lastDailyLoginDate = saved.lastDailyLoginDate
+                selectedAnimal = runCatching { AnimalType.valueOf(saved.selectedAnimal) }.getOrDefault(AnimalType.TIGER)
+                rewardType = runCatching { RewardType.valueOf(saved.rewardType) }.getOrDefault(RewardType.PLANT)
+            }
+
+            val savedAchievements = achievementRepository.getAchievements(userId).getOrDefault(emptyList()).associateBy { it.achievementId }
+            _achievements.indices.forEach { index ->
+                savedAchievements[_achievements[index].id]?.let { row ->
+                    _achievements[index] = _achievements[index].copy(
+                        progress = row.progress.coerceAtLeast(0),
+                        unlocked = row.unlocked,
+                        rewardGranted = row.rewardGranted
+                    )
+                }
+            }
+            recordDailyLogin()
+        }
+    }
+
+    fun refreshRewardCatalog() {
+        val userId = activeUserId ?: return
+        viewModelScope.launch { loadRewardCatalogForUser(userId) }
+    }
+
+    // ------------------------
+    // redeem shop-midnight stock refresh
+    // ------------------------
+    private fun startDailyInteractionResetSchedule(userId: String) {
+        viewModelScope.launch {
+            while (activeUserId == userId) {
+                val zone = ZoneId.systemDefault()
+                val now = ZonedDateTime.now(zone)
+                val nextMidnight = now.toLocalDate().plusDays(1).atStartOfDay(zone)
+                delay(java.time.Duration.between(now, nextMidnight).toMillis().coerceAtLeast(1L))
+
+                val today = LocalDate.now(zone).toString()
+                _rewardItems.indices.forEach { index ->
+                    val item = _rewardItems[index]
+                    if (item.type.equals("Interaction", ignoreCase = true)) {
+                        _rewardItems[index] = item.copy(stock = 10)
+                        userRewardStockRepository.saveStock(userId, item.id, 10, today)
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun loadRewardCatalogForUser(userId: String) {
+        RewardCatalogRepository.refresh()
+        if (RewardCatalogRepository.rewards.isEmpty()) return
+
+        val savedUserStock = userRewardStockRepository.getStock(userId).getOrDefault(emptyMap())
+        val today = LocalDate.now().toString()
+        val linkedItems = RewardCatalogRepository.rewards.map { row ->
+            val catalogItem = row.toRewardItem()
+            val saved = savedUserStock[catalogItem.id]
+            val isDailyInteraction = catalogItem.type.equals("Interaction", ignoreCase = true)
+            if (isDailyInteraction && saved?.resetDate != today) {
+                userRewardStockRepository.saveStock(userId, catalogItem.id, 10, today)
+                catalogItem.copy(stock = 10)
+            } else if (saved != null) {
+                catalogItem.copy(stock = saved.remainingStock.coerceAtLeast(0))
+            } else {
+                if (catalogItem.stock >= 0) {
+                    val initialStock = if (isDailyInteraction) 10 else catalogItem.stock
+                    userRewardStockRepository.saveStock(userId, catalogItem.id, initialStock, today)
+                    catalogItem.copy(stock = initialStock)
+                } else {
+                    catalogItem
+                }
+            }
+        }
+        _rewardItems.clear()
+        _rewardItems.addAll(linkedItems)
+    }
+
+    private fun persistProgress() {
+        val userId = activeUserId ?: return
+        val snapshot = RewardProgressRow(
+            userId = userId,
+            currentPoints = currentPoint,
+            experiencePoints = plantGrowthPoint,
+            plantGrowthPoints = plantGrowthPoint,
+            totalEarnedPoints = totalEarnedPoints,
+            lastDailyLoginDate = lastDailyLoginDate,
+            loginCount = loginCount,
+            reportCount = reportCount,
+            guidebookCount = guidebookCount,
+            selectedAnimal = selectedAnimal.name,
+            rewardType = rewardType.name
+        )
+        viewModelScope.launch { progressRepository.saveProgress(snapshot) }
+    }
+
+    private fun persistAchievement(achievement: Achievement) {
+        val userId = activeUserId ?: return
+        viewModelScope.launch {
+            achievementRepository.saveAchievement(
+                UserAchievementRow(userId, achievement.id, achievement.progress, achievement.unlocked, achievement.rewardGranted)
+            )
+        }
+    }
 
 
     // ============================================================
@@ -365,6 +524,8 @@ class RewardViewModel : ViewModel() {
 
                 RewardType.PLANT
             }
+
+        persistProgress()
     }
 
 
@@ -383,6 +544,7 @@ class RewardViewModel : ViewModel() {
 
         selectedAnimal =
             animal
+        persistProgress()
     }
 
 
@@ -450,6 +612,13 @@ class RewardViewModel : ViewModel() {
 
             )
         )
+
+        val userId = activeUserId
+        val event = _pendingPointEvents.last()
+        if (userId != null) {
+            viewModelScope.launch { pointRepository.addTransaction(userId, event) }
+        }
+        persistProgress()
     }
 
 
@@ -472,6 +641,8 @@ class RewardViewModel : ViewModel() {
 
         currentPoint -=
             amount
+
+        persistProgress()
 
 
         return true
@@ -501,6 +672,7 @@ class RewardViewModel : ViewModel() {
                 plantGrowthPoint,
                 currentPoint
             )
+        persistProgress()
     }
 
 
@@ -512,7 +684,7 @@ class RewardViewModel : ViewModel() {
 
         val today =
             LocalDate
-                .now()
+                .now(ZoneId.of("Asia/Kuala_Lumpur"))
                 .toString()
 
 
@@ -786,6 +958,8 @@ class RewardViewModel : ViewModel() {
 
                         )
 
+                    persistAchievement(_achievements[index])
+
 
                     earnPoints(
 
@@ -821,6 +995,7 @@ class RewardViewModel : ViewModel() {
                                 newProgress
 
                         )
+                    persistAchievement(_achievements[index])
                 }
             }
     }
@@ -1492,6 +1667,12 @@ class RewardViewModel : ViewModel() {
                     true
 
             )
+
+        activeUserId?.let { userId ->
+            viewModelScope.launch {
+                userRewardStockRepository.saveStock(userId, reward.id, _rewardItems[index].stock)
+            }
+        }
 
 
         return PurchaseResult.SUCCESS

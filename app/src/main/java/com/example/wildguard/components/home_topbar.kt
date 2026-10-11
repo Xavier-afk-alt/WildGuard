@@ -1,10 +1,13 @@
 package com.example.wildguard.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Image
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.example.wildguard.R
 
 @Composable
 fun HomeTopBar() {
@@ -19,7 +22,11 @@ fun HomeTopBar() {
 
     ) {
 
-        Text("LOGO")
+        Image(
+            painter = painterResource(R.drawable.wildguard_logo),
+            contentDescription = "WildGuard logo",
+            modifier = Modifier.size(42.dp)
+        )
 
         Row {
 
